@@ -10,42 +10,38 @@ export default function EditionPage() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [oeuvres, setOeuvres] = useState([]); // Stocker les œuvres de l'utilisateur
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL; 
   useEffect(() => {
     const fetchUserData = async () => {
       const jwt = Cookies.get("jwt");
       if (!jwt) {
-        console.log("Pas de JWT trouvé, redirection vers /connexion");
         router.push("/connexion");
         return;
       }
 
       try {
         // Récupérer les données utilisateur
-        const userRes = await fetch("http://127.0.0.1:1337/api/users/me", {
+        const userRes = await fetch(`${apiUrl}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
         });
 
         if (!userRes.ok) {
-          console.log("Erreur lors de la récupération de l'utilisateur :", userRes.status);
           router.push("/connexion");
           return;
         }
 
         const userData = await userRes.json();
-        console.log("Données utilisateur :", userData);
 
         if (!userData.redacteur) {
-          console.log("Utilisateur non autorisé (pas rédacteur) :", userData);
           router.push("/profil");
           return;
         }
 
         // Récupérer les œuvres de l'utilisateur
         const res = await fetch(
-          `http://127.0.0.1:1337/api/oeuvres?populate=couverture&filters[users][id][$eq]=${userData.id}`,
+         `${apiUrl}/api/oeuvres?populate=couverture&filters[users][id][$eq]=${userData.id}`,
           {
             headers: {
               Authorization: `Bearer ${jwt}`,
@@ -59,7 +55,6 @@ export default function EditionPage() {
         }
 
         const oeuvresData = await res.json();
-        console.log("Œuvres récupérées :", oeuvresData.data);
         setOeuvres(oeuvresData.data || []);
         setLoading(false);
       } catch (error) {
@@ -116,7 +111,7 @@ export default function EditionPage() {
                   <h3 className="text-lg font-bold mb-2">{titre || "Titre indisponible"}</h3>
                   {couvertureUrl ? (
                     <img
-                      src={`http://127.0.0.1:1337${couvertureUrl}`}
+                      src={`${apiUrl}${couvertureUrl}`}
                       alt={titre}
                       className="w-full h-48 object-cover rounded"
                     />

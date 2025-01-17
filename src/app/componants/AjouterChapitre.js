@@ -8,7 +8,7 @@ const AjouterChapitre = ({ oeuvreId, onClose, onChapitreAdded }) => {
   const [order, setOrder] = useState("");
   const [tome, setTome] = useState(""); // Peut être laissé vide
   const editorRef = useRef(null);
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
   const handleEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
   };
@@ -54,7 +54,7 @@ const AjouterChapitre = ({ oeuvreId, onClose, onChapitreAdded }) => {
         },
       };
 
-      const res = await fetch("http://127.0.0.1:1337/api/chapitres", {
+      const res = await fetch(`${apiUrl}/api/chapitres`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -70,7 +70,6 @@ const AjouterChapitre = ({ oeuvreId, onClose, onChapitreAdded }) => {
       }
 
       const data = await res.json();
-      console.log("Réponse du serveur :", data);
       alert("Chapitre ajouté avec succès !");
       onChapitreAdded(data); // Met à jour la liste des chapitres dans le composant parent
     } catch (error) {

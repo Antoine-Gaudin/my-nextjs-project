@@ -9,18 +9,15 @@ export default function Home() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dailyReleases, setDailyReleases] = useState([]);
   const [selectedOeuvre, setSelectedOeuvre] = useState(null); // Oeuvre sélectionnée pour le composant FicheOeuvre
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   useEffect(() => {
     const fetchDailyReleases = async () => {
       const today = new Date().toISOString().split("T")[0];
-      const url = `http://localhost:1337/api/chapitres?filters[updatedAt][$gte]=${today}T00:00:00&populate=oeuvres.couverture`;
-      console.log("Fetching daily releases for:", today);
-      console.log("URL de la requête des sorties du jour :", url);
+      const url = `${apiUrl}/api/chapitres?filters[updatedAt][$gte]=${today}T00:00:00&populate=oeuvres.couverture`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
-        console.log("Réponse de l'API pour les sorties du jour :", data);
 
         const uniqueOeuvres = {};
         data.data.forEach((chapitre) => {
@@ -50,15 +47,14 @@ export default function Home() {
 
   const handleSearch = async () => {
     try {
-      console.log("Texte de recherche :", searchText);
 
-      const url = `http://localhost:1337/api/oeuvres?filters[titre][$containsi]=${searchText}&populate=*`;
-      console.log("URL de la requête :", url);
+      const url = `${apiUrl}/api/oeuvres?filters[titre][$containsi]=${searchText}&populate=*`;
+  
 
       const res = await fetch(url);
       const data = await res.json();
 
-      console.log("Réponse de l'API :", data);
+     
 
       setSearchResults(data.data);
     } catch (error) {
@@ -123,7 +119,7 @@ export default function Home() {
                   <div
                     className="h-64 bg-cover bg-center"
                     style={{
-                      backgroundImage: `url('http://localhost:1337${oeuvre.couverture[0].url}')`,
+                      backgroundImage: `url('${apiUrl}${oeuvre.couverture[0].url}')`,
                     }}
                   ></div>
                 )}
@@ -188,7 +184,7 @@ export default function Home() {
                   >
                     {oeuvre.couverture?.length > 0 && (
                       <img
-                        src={`http://localhost:1337${oeuvre.couverture[0].url}`}
+                        src={`${apiUrl}${oeuvre.couverture[0].url}`}
                         alt={oeuvre.titre || "Image non disponible"}
                         className="w-16 h-16 object-cover rounded-md mr-4"
                       />

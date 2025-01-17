@@ -16,7 +16,7 @@ const MoChapitre = () => {
   });
   const editorRef = useRef(null); // Référence pour l'éditeur de texte riche
   const [message, setMessage] = useState("");
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   useEffect(() => {
     const fetchChapitre = async () => {
       try {
@@ -27,14 +27,13 @@ const MoChapitre = () => {
         }
 
         // Récupère les données du chapitre via l'API
-        const res = await axios.get(`http://127.0.0.1:1337/api/chapitres/${documentid}`, {
+        const res = await axios.get(`${apiUrl}/api/chapitres/${documentid}`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
         });
 
         const chapitre = res.data.data;
-        console.log("Chapitre récupéré :", chapitre);
 
         // Met à jour les champs avec les données récupérées
         setFormData({
@@ -107,13 +106,12 @@ const MoChapitre = () => {
         },
       };
 
-      const res = await axios.put(`http://127.0.0.1:1337/api/chapitres/${documentid}`, payload, {
+      const res = await axios.put(`${apiUrl}/api/chapitres/${documentid}`, payload, {
         headers: {
           Authorization: `Bearer ${jwt}`,
         },
       });
 
-      console.log("Chapitre modifié avec succès :", res.data);
       setMessage("Chapitre modifié avec succès !");
       router.back(); // Retourne à la page précédente
     } catch (error) {

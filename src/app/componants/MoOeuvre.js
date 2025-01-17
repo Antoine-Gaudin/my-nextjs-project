@@ -19,7 +19,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
   const [existingCouverture, setExistingCouverture] = useState(""); // URL de la couverture existante
   const [message, setMessage] = useState("");
   const editorRef = useRef(null); // Référence pour l'éditeur de synopsis
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const handleEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
   };
@@ -47,7 +47,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
 
       // Stocke l'URL de la couverture existante
       if (oeuvre.couverture && oeuvre.couverture.url) {
-        setExistingCouverture(`http://127.0.0.1:1337${oeuvre.couverture.url}`);
+        setExistingCouverture(`${apiUrl}${oeuvre.couverture.url}`);
       }
     }
   }, [oeuvre]);
@@ -61,7 +61,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setCouverture(file); // Stocke le fichier sélectionné
-    console.log("Nouvelle couverture sélectionnée :", file);
+
   };
 
   const handleSubmit = async (e) => {
@@ -83,7 +83,6 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
       },
     ];
 
-    console.log("Synopsis mis à jour :", formattedSynopsis);
 
     try {
       const jwt = Cookies.get("jwt");
@@ -101,7 +100,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
       };
 
       const response = await axios.put(
-        `http://127.0.0.1:1337/api/oeuvres/${oeuvre.documentId}`,
+        `${apiUrl}/api/oeuvres/${oeuvre.documentId}`,
         payload,
         {
           headers: {
@@ -111,30 +110,27 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
       );
 
       const updatedOeuvre = response.data;
-      console.log("Réponse de mise à jour des données textuelles :", updatedOeuvre);
 
       // Vérifie si une nouvelle couverture a été sélectionnée
       if (couverture) {
-        console.log("Envoi de la nouvelle couverture...");
         const uploadData = new FormData();
         uploadData.append("files", couverture);
         uploadData.append("ref", "api::oeuvre.oeuvre");
         uploadData.append("refId", updatedOeuvre.data.id);
         uploadData.append("field", "couverture");
 
-        const uploadResponse = await axios.post("http://127.0.0.1:1337/api/upload", uploadData, {
+        const uploadResponse = await axios.post(`${apiUrl}/api/upload`, uploadData, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
         });
 
-        console.log("Réponse de l'upload de la couverture :", uploadResponse.data);
+        console.log("Réponse de l'upload de la couverture :");
       } else {
         console.log("Aucune nouvelle couverture sélectionnée. La couverture existante reste inchangée.");
       }
 
       setMessage("Œuvre modifiée avec succès !");
-      console.log("Modification réussie !");
       onUpdate();
       onClose();
     } catch (err) {

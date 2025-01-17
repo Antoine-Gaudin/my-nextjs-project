@@ -13,7 +13,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
   const [users, setUsers] = useState([]);// users ajoutés
   const firstChapter = filteredChapitres.slice().sort((a, b) => a.order - b.order)[0]; // Premier chapitre (ordre croissant)
 const lastChapter = filteredChapitres.slice().sort((a, b) => b.order - a.order)[0]; // Dernier chapitre (ordre décroissant)
-
+const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
 
   const router = useRouter(); // Hook pour la navigation
 
@@ -23,14 +23,12 @@ const lastChapter = filteredChapitres.slice().sort((a, b) => b.order - a.order)[
         console.log("Début de la récupération des chapitres pour documentId :", oeuvre.documentId);
 
         const response = await fetch(
-          `http://localhost:1337/api/oeuvres/${oeuvre.documentId}?populate=tags&populate=genres&populate=users&populate=chapitres`
+          `${apiUrl}/api/oeuvres/${oeuvre.documentId}?populate=tags&populate=genres&populate=users&populate=chapitres`
         );
         const data = await response.json();
 
-        console.log("Réponse brute des chapitres :", data);
 
         if (data.data) {
-          console.log("Données récupérées :", data.data);
           setChapitres(data.data.chapitres || []);
           setFilteredChapitres(data.data.chapitres || []); // Initialisation avec tous les chapitres
           setTags(data.data.tags || []); // Extraction des tags
@@ -80,7 +78,6 @@ const lastChapter = filteredChapitres.slice().sort((a, b) => b.order - a.order)[
     }
   }
 
-  console.log(filteredChapitres)
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center">
       <div
@@ -144,7 +141,7 @@ const lastChapter = filteredChapitres.slice().sort((a, b) => b.order - a.order)[
           {/* Image de couverture */}
           {oeuvre.couverture?.[0]?.url && (
             <img
-              src={`http://localhost:1337${oeuvre.couverture[0].url}`}
+              src={`${apiUrl}${oeuvre.couverture[0].url}`}
               alt={oeuvre.titre || "Image non disponible"}
               className="rounded-md shadow-md"
               style={{
@@ -286,6 +283,7 @@ const lastChapter = filteredChapitres.slice().sort((a, b) => b.order - a.order)[
       {filteredChapitres
         .slice()
         .sort((a, b) => b.order - a.order)
+        .slice(0, 10)
         .map((chapitre, index) => (
           <div
             key={index}

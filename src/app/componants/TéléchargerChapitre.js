@@ -8,7 +8,8 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
   const [order, setOrder] = useState("");
   const [pdfFile, setPdfFile] = useState(null); // Pour le fichier PDF
   const [message, setMessage] = useState("");
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API depuis l'environnement
+  
   const handleFileChange = (e) => {
     setPdfFile(e.target.files[0]); // Stocke le fichier sélectionné
     console.log("Fichier PDF sélectionné :", e.target.files[0]);
@@ -40,8 +41,7 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
       const formData = new FormData();
       formData.append("files", pdfFile);
 
-      console.log("Upload du fichier PDF en cours...");
-      const uploadRes = await fetch("http://127.0.0.1:1337/api/upload", {
+      const uploadRes = await fetch(`${apiUrl}/api/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -56,11 +56,11 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
       }
 
       const uploadResponseData = await uploadRes.json();
-      console.log("Fichier PDF uploadé avec succès :", uploadResponseData);
+
 
       // Récupérez l'URL du fichier
       const pdf = uploadResponseData[0].url;
-      console.log("URL du fichier PDF :", pdf);
+
 
       // Étape 2 : Créer un chapitre avec les données textuelles et l'URL du fichier PDF
       const requestBody = {
@@ -74,8 +74,8 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
         },
       };
 
-      console.log("Envoi des données au serveur (étape 2)...", requestBody);
-      const res = await fetch("http://127.0.0.1:1337/api/chapitres", {
+  
+      const res = await fetch(`${apiUrl}/api/chapitres`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -91,7 +91,6 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
       }
 
       const chapitreData = await res.json();
-      console.log("Chapitre créé avec succès :", chapitreData);
 
       alert("Chapitre et fichier PDF ajoutés avec succès !");
       onChapitreUploaded(); // Met à jour les données du parent

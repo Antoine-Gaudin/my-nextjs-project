@@ -11,7 +11,7 @@ export default function ChapitrePage() {
   const [chapitres, setChapitres] = useState([]); // Liste des chapitres associés
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Contrôle de l'état de la liste déroulante
   const [selectedChapitre, setSelectedChapitre] = useState(""); // Chapitre sélectionné
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   useEffect(() => {
     async function fetchChapitreAndOeuvre() {
       try {
@@ -19,7 +19,7 @@ export default function ChapitrePage() {
 
         // 1. Récupération des données du chapitre
         const chapitreResponse = await axios.get(
-          `http://localhost:1337/api/chapitres/${documentid}?populate=oeuvres`
+          `${apiUrl}/api/chapitres/${documentid}?populate=oeuvres`
         );
         const chapitreData = chapitreResponse.data;
         console.log("Données du chapitre récupérées :", chapitreData);
@@ -30,7 +30,7 @@ export default function ChapitrePage() {
         console.log(`ID de l'œuvre associée : ${oeuvreId}`);
         if (oeuvreId) {
           const oeuvreResponse = await axios.get(
-            `http://localhost:1337/api/oeuvres/${oeuvreId}?populate=chapitres`
+            `${apiUrl}/api/oeuvres/${oeuvreId}?populate=chapitres`
           );
           const oeuvreData = oeuvreResponse.data;
           console.log("Données de l'œuvre associée récupérées :", oeuvreData);

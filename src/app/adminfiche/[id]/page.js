@@ -16,6 +16,7 @@ const AdminFichePage = () => {
   const [showGenreModal, setShowGenreModal] = useState(false); // État pour afficher le modal des genres
   const [showTagModal, setShowTagModal] = useState(false); // État pour afficher le modal des tags
   const [message, setMessage] = useState("");
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     const fetchOeuvreDetails = async () => {
@@ -31,7 +32,7 @@ const AdminFichePage = () => {
 
         // Requête : Récupérer l'œuvre en utilisant documentId
         const oeuvreRes = await fetch(
-          `http://127.0.0.1:1337/api/oeuvres/${id}?populate=couverture`,
+          `${apiUrl}/api/oeuvres/${id}?populate=couverture`,
           {
             headers: {
               Authorization: `Bearer ${jwt}`,
@@ -66,7 +67,7 @@ const AdminFichePage = () => {
     }
 
     try {
-      const res = await fetch(`http://127.0.0.1:1337/api/oeuvres/${id}`, {
+      const res = await fetch(`${apiUrl}/api/oeuvres/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -97,7 +98,7 @@ const AdminFichePage = () => {
     const fetchUpdatedOeuvre = async () => {
       const jwt = Cookies.get("jwt");
       try {
-        const res = await fetch(`http://127.0.0.1:1337/api/oeuvres/${id}?populate=couverture`, {
+        const res = await fetch(`${apiUrl}/api/oeuvres/${id}?populate=couverture`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
@@ -150,7 +151,7 @@ const AdminFichePage = () => {
 
         {couverture?.length > 0 ? (
           <img
-            src={`http://127.0.0.1:1337${couverture[0]?.url}`}
+            src={`${apiUrl}${couverture[0]?.url}`}
             alt={titre}
             className="w-full h-64 object-cover rounded-lg mb-6"
           />

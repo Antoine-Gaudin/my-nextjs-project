@@ -11,7 +11,7 @@ export default function Connection() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter(); // Next.js Router pour la redirection
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -20,7 +20,7 @@ export default function Connection() {
     try {
       // Appel à l'API Strapi pour authentification
       const response = await axios.post(
-        `http://localhost:1337/api/auth/local`,
+        `${apiUrl}/api/auth/local`,
         {
           identifier,
           password,
@@ -32,7 +32,7 @@ export default function Connection() {
 
       // Récupérer les informations utilisateur
       const userInfoResponse = await axios.get(
-        `http://localhost:1337/api/users/me`,
+        `${apiUrl}/api/users/me`,
         {
           headers: {
             Authorization: `Bearer ${response.data.jwt}`,
@@ -45,7 +45,7 @@ export default function Connection() {
       // Stocker les informations utilisateur (optionnel)
       Cookies.set("userInfo", JSON.stringify(userInfo), { expires: 7 });
 
-      console.log("Login successful:", userInfo);
+
 
       // Rediriger vers la page d'administration
       router.push("/profil");

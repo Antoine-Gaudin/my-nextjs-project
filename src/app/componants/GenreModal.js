@@ -7,20 +7,20 @@ const GenreModal = ({ oeuvreId, onClose, onGenreUpdate }) => {
   const [filteredGenres, setFilteredGenres] = useState([]);
   const [oeuvreGenres, setOeuvreGenres] = useState([]);
   const [oeuvre, setOeuvre] = useState(null);
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL; 
   useEffect(() => {
     const fetchOeuvreAndGenres = async () => {
       try {
         // Récupération de l'œuvre
         const oeuvreRes = await axios.get(
-          `http://localhost:1337/api/oeuvres/${oeuvreId}?populate=genres`
+          `${apiUrl}/api/oeuvres/${oeuvreId}?populate=genres`
         );
         const fetchedOeuvre = oeuvreRes.data.data;
         setOeuvre(fetchedOeuvre);
         setOeuvreGenres(fetchedOeuvre.genres || []);
 
         // Récupération des genres disponibles
-        const genreRes = await axios.get("http://localhost:1337/api/genres");
+        const genreRes = await axios.get(`${apiUrl}/api/genres`);
         setGenres(genreRes.data.data || []);
       } catch (error) {
         console.error("Erreur lors de la récupération des données :", error);
@@ -54,7 +54,7 @@ const GenreModal = ({ oeuvreId, onClose, onGenreUpdate }) => {
     }
 
     try {
-      const res = await axios.post("http://localhost:1337/api/genres", {
+      const res = await axios.post(`${apiUrl}/api/genres`, {
         data: { nom: genreSearchTerm },
       });
       const newGenre = res.data.data;
@@ -86,7 +86,7 @@ const GenreModal = ({ oeuvreId, onClose, onGenreUpdate }) => {
             genres.find((genre) => genre.documentId === genreDocumentId),
           ];
 
-      await axios.put(`http://localhost:1337/api/oeuvres/${oeuvre.documentId}`, {
+      await axios.put(`${apiUrl}/api/oeuvres/${oeuvre.documentId}`, {
         data: { genres: updatedGenres.map((genre) => genre.documentId) },
       });
 

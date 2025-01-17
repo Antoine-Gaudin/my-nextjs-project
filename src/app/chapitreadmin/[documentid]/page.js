@@ -17,7 +17,7 @@ const ChapitreAdmin = () => {
   const [showAjouterModal, setShowAjouterModal] = useState(false);
   const [showTéléchargerModal, setShowTéléchargerModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState({}); // Stocke les valeurs d'ordre en cours d'édition
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL; 
   useEffect(() => {
     const fetchOeuvreEtChapitres = async () => {
       const jwt = Cookies.get("jwt");
@@ -28,7 +28,7 @@ const ChapitreAdmin = () => {
 
       try {
         const res = await fetch(
-          `http://127.0.0.1:1337/api/oeuvres/${documentid}?populate=chapitres`,
+          `${apiUrl}/api/oeuvres/${documentid}?populate=chapitres`,
           {
             headers: {
               Authorization: `Bearer ${jwt}`,
@@ -79,7 +79,7 @@ const ChapitreAdmin = () => {
 
     const jwt = Cookies.get("jwt");
     try {
-      const res = await fetch(`http://127.0.0.1:1337/api/chapitres/${chapterDocumentId}`, {
+      const res = await fetch(`${apiUrl}/api/chapitres/${chapterDocumentId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ const ChapitreAdmin = () => {
     if (!confirm("Voulez-vous vraiment supprimer ce chapitre ?")) return;
 
     try {
-      const res = await fetch(`http://127.0.0.1:1337/api/chapitres/${chapterDocumentId}`, {
+      const res = await fetch(`${apiUrl}/api/chapitres/${chapterDocumentId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -153,7 +153,7 @@ const ChapitreAdmin = () => {
   const handleRedirectToChapter = (chapitre) => {
     if (chapitre.pdf) {
       // Redirige vers une page pour afficher le PDF
-      window.open(`http://127.0.0.1:1337${chapitre.pdf}`, "_blank");
+      window.open(`${apiUrl}${chapitre.pdf}`, "_blank");
     } else {
       // Redirige vers la page de contenu texte
       router.push(`/mochapitre/${chapitre.documentId}`);

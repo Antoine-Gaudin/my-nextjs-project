@@ -6,16 +6,16 @@ import FicheOeuvre from "../componants/FicheOeuvre"; // Import du composant Fich
 export default function Oeuvres() {
   const [oeuvres, setOeuvres] = useState([]);
   const [selectedOeuvre, setSelectedOeuvre] = useState(null); // Oeuvre sélectionnée pour afficher FicheOeuvre
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   useEffect(() => {
     const fetchOeuvres = async () => {
-      const url = `http://localhost:1337/api/oeuvres?populate=couverture`;
-      console.log("Fetching all œuvres:", url);
+      const url = `${apiUrl}/api/oeuvres?populate=couverture`;
+     
 
       try {
         const res = await fetch(url);
         const data = await res.json();
-        console.log("Réponse de l'API pour les œuvres :", data);
+    
 
         setOeuvres(data.data); // Met à jour les œuvres récupérées
       } catch (error) {
@@ -50,7 +50,7 @@ export default function Oeuvres() {
                 <div
                   className="h-64 bg-cover bg-center"
                   style={{
-                    backgroundImage: `url('http://localhost:1337${oeuvre.couverture[0].url}')`,
+                    backgroundImage: `url('${apiUrl}${oeuvre.couverture[0].url}')`,
                   }}
                 ></div>
               )}

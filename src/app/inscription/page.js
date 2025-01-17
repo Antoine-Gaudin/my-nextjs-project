@@ -11,13 +11,15 @@ export default function Inscription() {
   const [error, setError] = useState("");
   const [passwordError, setPasswordError] = useState(""); // Validation pour le mot de passe
   const router = useRouter();
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   // Fonction de validation pour le mot de passe
   const validatePassword = (password) => {
     const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
     return regex.test(password);
   };
 
+  console.log("API URL:", apiUrl);
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -32,7 +34,7 @@ export default function Inscription() {
 
     try {
       const response = await axios.post(
-        "http://localhost:1337/api/auth/local/register",
+        `${apiUrl}/api/auth/local/register`,
         {
           username,
           email,
@@ -40,7 +42,6 @@ export default function Inscription() {
         }
       );
 
-      console.log("Utilisateur inscrit avec succès :", response.data);
 
       // Redirige l'utilisateur vers la page de connexion après inscription
       router.push("/connexion");

@@ -18,7 +18,7 @@ const AddOeuvreForm = ({ onClose }) => {
   const [couverture, setCouverture] = useState(null);
   const [userId, setUserId] = useState(null);
   const editorRef = useRef(null);
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
   useEffect(() => {
     const fetchUserId = async () => {
       const jwt = Cookies.get("jwt");
@@ -28,7 +28,7 @@ const AddOeuvreForm = ({ onClose }) => {
       }
 
       try {
-        const res = await axios.get("http://127.0.0.1:1337/api/users/me", {
+        const res = await axios.get(`${apiUrl}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
@@ -95,7 +95,7 @@ const AddOeuvreForm = ({ onClose }) => {
         },
       };
 
-      const response = await axios.post("http://127.0.0.1:1337/api/oeuvres", payload, {
+      const response = await axios.post(`${apiUrl}/api/oeuvres`, payload, {
         headers: {
           Authorization: `Bearer ${jwt}`,
         },
@@ -111,7 +111,7 @@ const AddOeuvreForm = ({ onClose }) => {
         uploadData.append("refId", newOeuvre.data.id);
         uploadData.append("field", "couverture");
 
-        await axios.post("http://127.0.0.1:1337/api/upload", uploadData, {
+        await axios.post(`${apiUrl}/api/upload`, uploadData, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },

@@ -10,18 +10,17 @@ export default function ProfilPage() {
   const [loading, setLoading] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false); // État pour afficher la fenêtre pop-up
   const router = useRouter();
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   useEffect(() => {
     const fetchUserData = async () => {
       const jwt = Cookies.get("jwt");
       if (!jwt) {
-        console.log("Pas de JWT trouvé, redirection vers /connexion");
         router.push("/connexion");
         return;
       }
 
       try {
-        const res = await fetch("http://127.0.0.1:1337/api/users/me", {
+        const res = await fetch(`${apiUrl}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
@@ -29,7 +28,6 @@ export default function ProfilPage() {
         });
 
         if (!res.ok) {
-          console.log("Erreur HTTP :", res.status);
           router.push("/connexion");
           return;
         }
@@ -48,7 +46,6 @@ export default function ProfilPage() {
   const handleUpdateRedacteur = async () => {
     const jwt = Cookies.get("jwt");
     if (!jwt) {
-      console.log("Pas de JWT trouvé, redirection vers /connexion");
       router.push("/connexion");
       return;
     }
@@ -57,7 +54,7 @@ export default function ProfilPage() {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`http://127.0.0.1:1337/api/users/${user.id}`, {
+      const res = await fetch(`${apiUrl}/api/users/${user.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +71,6 @@ export default function ProfilPage() {
 
       const updatedUser = await res.json();
       setUser(updatedUser);
-      console.log("Utilisateur mis à jour :", updatedUser);
       setShowConsentModal(false); // Ferme la fenêtre pop-up après confirmation
     } catch (error) {
       console.error("Erreur avec fetch :", error);
