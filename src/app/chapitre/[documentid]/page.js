@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 
@@ -12,6 +12,7 @@ export default function ChapitrePage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Contrôle de l'état de la liste déroulante
   const [selectedChapitre, setSelectedChapitre] = useState(""); // Chapitre sélectionné
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
   useEffect(() => {
     async function fetchChapitreAndOeuvre() {
       try {
@@ -62,13 +63,6 @@ export default function ChapitrePage() {
       fetchChapitreAndOeuvre();
     }
   }, [documentid]);
-
-  useEffect(() => {
-    if (contentRef.current) {
-      // Supprime les styles inline de tous les éléments enfants
-      contentRef.current.querySelectorAll("*").forEach((el) => el.removeAttribute("style"));
-    }
-  }, [chapitre]);
 
   // Gestion des boutons "Chapitre précédent" et "Chapitre suivant"
   const navigateToChapitre = (direction) => {
@@ -160,16 +154,15 @@ export default function ChapitrePage() {
               : "Date non disponible"}
           </p>
           {/* Affichage des textes du chapitre */}
-          <div className="mt-4 space-y-2" ref={contentRef}>
-  {chapitre.data.texte?.map((item, index) => (
-    <div
-      key={index}
-      className="text-gray-300"
-      dangerouslySetInnerHTML={{ __html: item.children?.[0]?.text || "Texte non disponible" }}
-    />
-  ))}
-</div>
-
+          <div className="mt-4 space-y-2">
+            {chapitre.data.texte?.map((item, index) => (
+              <div
+                key={index}
+                className="text-gray-300"
+                dangerouslySetInnerHTML={{ __html: item.children?.[0]?.text || "Texte non disponible" }}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <p>Chargement des informations du chapitre...</p>
@@ -177,8 +170,3 @@ export default function ChapitrePage() {
     </div>
   );
 }
-
-
-
-
-

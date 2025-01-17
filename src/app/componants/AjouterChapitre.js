@@ -9,8 +9,13 @@ const AjouterChapitre = ({ oeuvreId, onClose, onChapitreAdded }) => {
   const [tome, setTome] = useState(""); // Peut être laissé vide
   const editorRef = useRef(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
+
   const handleEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
+  };
+
+  const handleTextColor = (color) => {
+    document.execCommand("foreColor", false, color);
   };
 
   const handleSubmit = async (e) => {
@@ -156,6 +161,14 @@ const AjouterChapitre = ({ oeuvreId, onClose, onChapitreAdded }) => {
                   <option value="6">Énorme</option>
                   <option value="7">Gigantesque</option>
                 </select>
+                {/* Nouveau bouton pour la couleur du texte */}
+                <button
+  type="button"
+  onClick={() => handleTextColor("#D3D3D3")}  // Applique la couleur gris clair
+  className="px-2 py-1 bg-gray-500 text-white rounded"
+>
+  Couleur Texte
+</button>
               </div>
 
               {/* Conteneur éditable */}

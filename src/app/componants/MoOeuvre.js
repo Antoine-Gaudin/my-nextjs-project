@@ -23,6 +23,9 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
   const handleEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
   };
+  const handleTextColor = (color) => {
+    document.execCommand("foreColor", false, color);
+  };
 
   useEffect(() => {
     if (oeuvre) {
@@ -231,6 +234,9 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
                 >
                   Souligné
                 </button>
+
+
+
                 <select
                   onChange={(e) => handleEditorCommand("fontSize", e.target.value)}
                   className="bg-gray-700 text-white px-2 py-1 rounded"
@@ -247,8 +253,14 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
                   <option value="6">Énorme</option>
                   <option value="7">Gigantesque</option>
                 </select>
+                <button
+  type="button"
+  onClick={() => handleTextColor("#D3D3D3")}  // Applique la couleur gris clair
+  className="px-2 py-1 bg-gray-500 text-white rounded"
+>
+  Couleur Texte
+</button>
               </div>
-
               {/* Conteneur éditable */}
               <div
                 ref={editorRef}

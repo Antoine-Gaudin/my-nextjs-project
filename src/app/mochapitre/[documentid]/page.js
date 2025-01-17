@@ -65,6 +65,11 @@ const MoChapitre = () => {
     document.execCommand(command, false, value);
   };
 
+  const handleTextColor = (color) => {
+    document.execCommand("foreColor", false, color);
+  };
+  
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -206,6 +211,16 @@ const MoChapitre = () => {
                 <option value="6">Énorme</option>
                 <option value="7">Gigantesque</option>
               </select>
+
+              <button
+  type="button"
+  onClick={() => handleTextColor("#D3D3D3")}  // Applique la couleur gris clair
+  className="px-2 py-1 bg-gray-500 text-white rounded"
+>
+  Couleur Texte
+</button>
+
+
             </div>
 
             {/* Conteneur éditable */}
