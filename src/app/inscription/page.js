@@ -34,7 +34,7 @@ export default function Inscription() {
 
     try {
       const response = await axios.post(
-        `${apiUrl}/api/auth/local/register`,
+        `https://my-strapi-project-yysn.onrender.com/api/auth/local/register`,
         {
           username,
           email,

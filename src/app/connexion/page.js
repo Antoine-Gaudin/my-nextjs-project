@@ -20,7 +20,7 @@ export default function Connection() {
     try {
       // Appel à l'API Strapi pour authentification
       const response = await axios.post(
-        `${apiUrl}/api/auth/local`,
+        `https://my-strapi-project-yysn.onrender.com/api/auth/local`,
         {
           identifier,
           password,
