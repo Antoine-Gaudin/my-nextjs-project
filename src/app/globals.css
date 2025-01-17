@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #ffffff;
+    --foreground: #000000;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Masque la barre de défilement pour les navigateurs basés sur WebKit */
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none; /* Masque la barre de défilement pour Internet Explorer */
+  scrollbar-width: none; /* Masque la barre de défilement pour Firefox */
+}
+
