@@ -288,7 +288,15 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
           <div
             key={index}
             className="border border-gray-400 rounded-lg p-4 shadow-md hover:shadow-xl hover:scale-105 transition duration-300 cursor-pointer"
-            onClick={() => router.push(`/chapitre/${chapitre.documentId}`)} // Navigation dynamique
+            onClick={() => {
+              if (chapitre.pdf) {
+                // Redirection vers le fichier PDF
+                window.open(`${apiUrl}${chapitre.pdf}`, "_blank");
+              } else {
+                // Navigation dynamique vers la page du chapitre
+                router.push(`/chapitre/${chapitre.documentId}`);
+              }
+            }}
           >
             <h3 className="font-bold text-lg">{chapitre.titre || "Titre non disponible"}</h3>
             <p className="text-sm italic text-gray-600">
@@ -301,6 +309,8 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
     </div>
   </div>
 )}
+
+
 
         </div>
       </div>
