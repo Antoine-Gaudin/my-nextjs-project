@@ -171,12 +171,12 @@ const AdminFichePage = () => {
         </div>
 
         <div className="flex justify-center mt-6 space-x-4">
-          <button
+         {/* <button
             onClick={handleEdit}
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-400 transition"
           >
             Modifier
-          </button>
+          </button>*/}
           <button
             onClick={handleDelete}
             className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-400 transition"
