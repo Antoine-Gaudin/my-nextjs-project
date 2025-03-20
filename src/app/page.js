@@ -184,7 +184,7 @@ export default function Home() {
                   >
                     {oeuvre.couverture?.length > 0 && (
                       <img
-                        src={`${apiUrl}${oeuvre.couverture[0].url}`}
+                        src={`${oeuvre.couverture.url}`}
                         alt={oeuvre.titre || "Image non disponible"}
                         className="w-16 h-16 object-cover rounded-md mr-4"
                       />

@@ -34,6 +34,7 @@ export default function Oeuvres() {
     setSelectedOeuvre(null); // Réinitialise l'œuvre sélectionnée pour fermer FicheOeuvre
   };
 
+  console.log(oeuvres)
   return (
     <div className="bg-gray-900 text-white p-8 min-h-screen">
       <h2 className="text-3xl font-bold mb-6">Liste des œuvres</h2>
@@ -46,14 +47,12 @@ export default function Oeuvres() {
               onClick={() => handleOeuvreClick(oeuvre)} // Mettre à jour l'œuvre sélectionnée
             >
               {/* Image de couverture */}
-              {oeuvre.couverture?.[0]?.url && (
                 <div
                   className="h-64 bg-cover bg-center"
                   style={{
-                    backgroundImage: `url('${apiUrl}${oeuvre.couverture[0].url}')`,
+                    backgroundImage: `url('${oeuvre.couverture[0].url}')`,
                   }}
                 ></div>
-              )}
 
               {/* Type, Catégorie, et Titre */}
               <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-gray-900 opacity-90 px-4 py-2">

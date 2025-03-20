@@ -136,6 +136,9 @@ const AdminFichePage = () => {
   // Déstructuration des données de l'œuvre
   const { titre, auteur, annee, couverture } = oeuvre;
 
+
+  console.log(couverture)
+
   return (
     <div className="p-8 bg-gray-900 text-white min-h-screen flex flex-col items-center">
       <div className="mb-6">
@@ -151,7 +154,7 @@ const AdminFichePage = () => {
 
         {couverture?.length > 0 ? (
           <img
-            src={`${apiUrl}${couverture[0]?.url}`}
+            src={`${couverture[0].url}`}
             alt={titre}
             className="w-full h-64 object-cover rounded-lg mb-6"
           />

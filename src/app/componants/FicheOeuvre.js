@@ -139,9 +139,9 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
         {/* Zone d'informations */}
         <div className="relative flex items-end px-12 responsive-section">
           {/* Image de couverture */}
-          {oeuvre.couverture?.[0]?.url && (
+
             <img
-              src={`${apiUrl}${oeuvre.couverture[0].url}`}
+              src={`${oeuvre.couverture[0].url}`}
               alt={oeuvre.titre || "Image non disponible"}
               className="rounded-md shadow-md"
               style={{
@@ -150,7 +150,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
                 objectFit: "cover",
               }}
             />
-          )}
+
 
           {/* Informations principales */}
           <div className="flex flex-col justify-end space-y-6 ml-8 h-full">

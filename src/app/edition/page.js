@@ -111,7 +111,7 @@ export default function EditionPage() {
                   <h3 className="text-lg font-bold mb-2">{titre || "Titre indisponible"}</h3>
                   {couvertureUrl ? (
                     <img
-                      src={`${apiUrl}${couvertureUrl}`}
+                      src={`${couvertureUrl}`}
                       alt={titre}
                       className="w-full h-48 object-cover rounded"
                     />
