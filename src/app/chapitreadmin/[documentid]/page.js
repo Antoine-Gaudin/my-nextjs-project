@@ -272,6 +272,7 @@ const ChapitreAdmin = () => {
           oeuvreId={documentid}
           onClose={() => setShowAjouterModal(false)}
           onChapitreAdded={() => setShowAjouterModal(false)}
+          oeuvreTitre={oeuvre.titre} // 👈 ici
         />
       )}
 

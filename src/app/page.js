@@ -119,7 +119,7 @@ export default function Home() {
                   <div
                     className="h-64 bg-cover bg-center"
                     style={{
-                      backgroundImage: `url('${apiUrl}${oeuvre.couverture[0].url}')`,
+                      backgroundImage: `url('${oeuvre.couverture[0].url}')`,
                     }}
                   ></div>
                 )}

@@ -19,9 +19,13 @@ const AddOeuvreForm = ({ onClose }) => {
   const [userId, setUserId] = useState(null);
   const editorRef = useRef(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
+  const apiToken="cb2645fbb7eef796ddc032f2d273465aa0e3cef5c5e72a3d7ea37aeeec9dbdde71f3a593a428355fb18cebfa8ae8d18932de36d48185f4125944f70f0771feeec5a6819be2338dd89db5a0df784daeab243dc5feac8d620bb65401d5b5efac46b606fc9995fc0d2359b08a0acaefcf3880967ed43865ba4ecfea9f1f081b0c34";
+  
   useEffect(() => {
     const fetchUserId = async () => {
       const jwt = Cookies.get("jwt");
+
+
       if (!jwt) {
         setMessage("JWT manquant. Veuillez vous reconnecter.");
         return;
@@ -63,13 +67,18 @@ const AddOeuvreForm = ({ onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
+    const jwt = Cookies.get("jwt");
+    if (!jwt) {
+      alert("JWT manquant. Veuillez vous reconnecter.");
+      return;
+    }
+  
     if (!userId) {
       alert("Impossible d'ajouter l'œuvre. Utilisateur non identifié.");
       return;
     }
-
-    // Récupérer et formater le contenu du champ synopsis
+  
     const rawSynopsis = editorRef.current.innerHTML.trim();
     const formattedSynopsis = [
       {
@@ -79,46 +88,101 @@ const AddOeuvreForm = ({ onClose }) => {
         ],
       },
     ];
-
+  
     try {
-      const jwt = Cookies.get("jwt");
-      if (!jwt) {
-        alert("JWT manquant. Veuillez vous reconnecter.");
-        return;
-      }
-
+      // 1. Création de l’œuvre locale
       const payload = {
         data: {
           ...formData,
-          synopsis: formattedSynopsis, // Envoi du synopsis formaté
+          synopsis: formattedSynopsis,
           users: [userId],
         },
       };
-
+  
       const response = await axios.post(`${apiUrl}/api/oeuvres`, payload, {
         headers: {
           Authorization: `Bearer ${jwt}`,
         },
       });
-
+  
       const newOeuvre = response.data;
-
-      // Upload de la couverture, si présente
+  
+      // 2. Upload de la couverture locale (si présente)
       if (couverture) {
         const uploadData = new FormData();
         uploadData.append("files", couverture);
         uploadData.append("ref", "api::oeuvre.oeuvre");
         uploadData.append("refId", newOeuvre.data.id);
         uploadData.append("field", "couverture");
-
+  
         await axios.post(`${apiUrl}/api/upload`, uploadData, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
         });
       }
-
-      alert("Œuvre ajoutée avec succès !");
+  
+      // 3. Récupérer l'utilisateur pour le champ "traduction"
+      const userRes = await axios.get(`${apiUrl}/api/users/me`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+  
+      const userName = userRes.data.username || "Anonyme";
+  
+      // 4. Récupérer l’image locale en blob si uploadée
+      let couvertureBlob = null;
+      if (couverture) {
+        couvertureBlob = couverture;
+      }
+  
+      // 5. Envoi vers novel-index
+      const indexPayload = {
+        data: {
+          titre: formData.titre,
+          titrealt: formData.titrealt,
+          auteur: formData.auteur,
+          annee: formData.annee,
+          type: formData.type,
+          categorie: formData.categorie,
+          etat: formData.etat,
+          synopsis: rawSynopsis.replace(/<[^>]+>/g, ""), // extrait le texte brut du HTML
+          traduction: userName,
+          langage: "Français",
+          licence: false,
+        },
+      };
+  
+      const indexRes = await axios.post(
+        "https://novel-index-strapi.onrender.com/api/oeuvres",
+        indexPayload,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+        }
+      );
+  
+      if (couvertureBlob) {
+        const uploadDataIndex = new FormData();
+        uploadDataIndex.append("files", couvertureBlob, couvertureBlob.name);
+        uploadDataIndex.append("ref", "api::oeuvre.oeuvre");
+        uploadDataIndex.append("refId", indexRes.data.data.id);
+        uploadDataIndex.append("field", "couverture");
+  
+        await axios.post(
+          "https://novel-index-strapi.onrender.com/api/upload",
+          uploadDataIndex,
+          {
+            headers: {
+              Authorization: `Bearer ${apiToken}`,
+            },
+          }
+        );
+      }
+  
+      alert("Œuvre ajoutée et synchronisée avec succès !");
       setFormData({
         titre: "",
         titrealt: "",
@@ -126,16 +190,20 @@ const AddOeuvreForm = ({ onClose }) => {
         annee: "",
         type: "",
         categorie: "",
-        etat: "En cours", // Reset par défaut
+        etat: "En cours",
       });
-      editorRef.current.innerHTML = ""; // Réinitialise le synopsis
+      editorRef.current.innerHTML = "";
       setCouverture(null);
       onClose();
+  
     } catch (err) {
-      console.error("Erreur lors de l’ajout :", err.response?.data || err);
-      alert("Erreur lors de l’ajout.");
+      console.error("Erreur :", err.response?.data || err);
+      alert("Erreur lors de l’ajout ou de la synchro.");
     }
   };
+  
+
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
