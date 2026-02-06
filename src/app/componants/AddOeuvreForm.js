@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
+import dynamic from "next/dynamic";
 
-const AddOeuvreForm = ({ onClose }) => {
+const RichEditor = dynamic(() => import("./RichEditor"), { ssr: false });
+
+const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
   const [formData, setFormData] = useState({
     titre: "",
     titrealt: "",
@@ -12,40 +15,32 @@ const AddOeuvreForm = ({ onClose }) => {
     annee: "",
     type: "",
     categorie: "",
-    etat: "En cours", // Valeur par défaut
+    etat: "En cours",
   });
-  const [message, setMessage] = useState("");
   const [couverture, setCouverture] = useState(null);
+  const [couverturePreview, setCouverturePreview] = useState(null);
   const [userId, setUserId] = useState(null);
-  const editorRef = useRef(null);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API
-  const apiToken="cb2645fbb7eef796ddc032f2d273465aa0e3cef5c5e72a3d7ea37aeeec9dbdde71f3a593a428355fb18cebfa8ae8d18932de36d48185f4125944f70f0771feeec5a6819be2338dd89db5a0df784daeab243dc5feac8d620bb65401d5b5efac46b606fc9995fc0d2359b08a0acaefcf3880967ed43865ba4ecfea9f1f081b0c34";
-  
+  const [synopsis, setSynopsis] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState({ text: "", type: "" });
+  const apiToken = process.env.NEXT_PUBLIC_INDEX_API_TOKEN;
+
   useEffect(() => {
     const fetchUserId = async () => {
       const jwt = Cookies.get("jwt");
-
-
       if (!jwt) {
-        setMessage("JWT manquant. Veuillez vous reconnecter.");
+        setMessage({ text: "JWT manquant. Veuillez vous reconnecter.", type: "error" });
         return;
       }
 
       try {
-        const res = await axios.get(`${apiUrl}/api/users/me`, {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
+        const res = await axios.get(`/api/proxy/users/me`, {
+          headers: { Authorization: `Bearer ${jwt}` },
         });
-
-        if (res.status === 200) {
-          setUserId(res.data.id);
-        } else {
-          setMessage("Erreur lors de la récupération des informations utilisateur.");
-        }
+        if (res.status === 200) setUserId(res.data.id);
       } catch (err) {
-        console.error("Erreur lors de la récupération de l'utilisateur :", err);
-        setMessage("Erreur lors de la récupération des informations utilisateur.");
+        console.error("Erreur recuperation utilisateur :", err);
+        setMessage({ text: "Erreur lors de la recuperation utilisateur.", type: "error" });
       }
     };
 
@@ -58,39 +53,42 @@ const AddOeuvreForm = ({ onClose }) => {
   };
 
   const handleFileChange = (e) => {
-    setCouverture(e.target.files[0]);
-  };
-
-  const handleEditorCommand = (command, value = null) => {
-    document.execCommand(command, false, value);
+    const file = e.target.files[0];
+    setCouverture(file);
+    if (file) {
+      setCouverturePreview(URL.createObjectURL(file));
+    } else {
+      setCouverturePreview(null);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+    setSubmitting(true);
+    setMessage({ text: "", type: "" });
+
     const jwt = Cookies.get("jwt");
     if (!jwt) {
-      alert("JWT manquant. Veuillez vous reconnecter.");
+      setMessage({ text: "JWT manquant. Veuillez vous reconnecter.", type: "error" });
+      setSubmitting(false);
       return;
     }
-  
+
     if (!userId) {
-      alert("Impossible d'ajouter l'œuvre. Utilisateur non identifié.");
+      setMessage({ text: "Impossible d'ajouter l'oeuvre. Utilisateur non identifie.", type: "error" });
+      setSubmitting(false);
       return;
     }
-  
-    const rawSynopsis = editorRef.current.innerHTML.trim();
+
+    const plainText = synopsis.replace(/<[^>]+>/g, "").trim();
     const formattedSynopsis = [
       {
         type: "paragraph",
-        children: [
-          { type: "text", text: rawSynopsis.replace(/<[^>]+>/g, "") },
-        ],
+        children: [{ type: "text", text: plainText }],
       },
     ];
-  
+
     try {
-      // 1. Création de l’œuvre locale
       const payload = {
         data: {
           ...formData,
@@ -98,46 +96,30 @@ const AddOeuvreForm = ({ onClose }) => {
           users: [userId],
         },
       };
-  
-      const response = await axios.post(`${apiUrl}/api/oeuvres`, payload, {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
+
+      const response = await axios.post(`/api/proxy/oeuvres`, payload, {
+        headers: { Authorization: `Bearer ${jwt}` },
       });
-  
+
       const newOeuvre = response.data;
-  
-      // 2. Upload de la couverture locale (si présente)
+
       if (couverture) {
         const uploadData = new FormData();
         uploadData.append("files", couverture);
         uploadData.append("ref", "api::oeuvre.oeuvre");
         uploadData.append("refId", newOeuvre.data.id);
         uploadData.append("field", "couverture");
-  
-        await axios.post(`${apiUrl}/api/upload`, uploadData, {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
+
+        await axios.post(`/api/proxy/upload`, uploadData, {
+          headers: { Authorization: `Bearer ${jwt}` },
         });
       }
-  
-      // 3. Récupérer l'utilisateur pour le champ "traduction"
-      const userRes = await axios.get(`${apiUrl}/api/users/me`, {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
+
+      const userRes = await axios.get(`/api/proxy/users/me`, {
+        headers: { Authorization: `Bearer ${jwt}` },
       });
-  
       const userName = userRes.data.username || "Anonyme";
-  
-      // 4. Récupérer l’image locale en blob si uploadée
-      let couvertureBlob = null;
-      if (couverture) {
-        couvertureBlob = couverture;
-      }
-  
-      // 5. Envoi vers novel-index
+
       const indexPayload = {
         data: {
           titre: formData.titre,
@@ -147,207 +129,135 @@ const AddOeuvreForm = ({ onClose }) => {
           type: formData.type,
           categorie: formData.categorie,
           etat: formData.etat,
-          synopsis: rawSynopsis.replace(/<[^>]+>/g, ""), // extrait le texte brut du HTML
+          synopsis: plainText,
           traduction: userName,
-          langage: "Français",
+          langage: "Francais",
           licence: false,
         },
       };
-  
+
       const indexRes = await axios.post(
         "https://novel-index-strapi.onrender.com/api/oeuvres",
         indexPayload,
-        {
-          headers: {
-            Authorization: `Bearer ${apiToken}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${apiToken}` } }
       );
-  
-      if (couvertureBlob) {
+
+      if (couverture) {
         const uploadDataIndex = new FormData();
-        uploadDataIndex.append("files", couvertureBlob, couvertureBlob.name);
+        uploadDataIndex.append("files", couverture, couverture.name);
         uploadDataIndex.append("ref", "api::oeuvre.oeuvre");
         uploadDataIndex.append("refId", indexRes.data.data.id);
         uploadDataIndex.append("field", "couverture");
-  
+
         await axios.post(
           "https://novel-index-strapi.onrender.com/api/upload",
           uploadDataIndex,
-          {
-            headers: {
-              Authorization: `Bearer ${apiToken}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${apiToken}` } }
         );
       }
-  
-      alert("Œuvre ajoutée et synchronisée avec succès !");
-      setFormData({
-        titre: "",
-        titrealt: "",
-        auteur: "",
-        annee: "",
-        type: "",
-        categorie: "",
-        etat: "En cours",
-      });
-      editorRef.current.innerHTML = "";
-      setCouverture(null);
-      onClose();
-  
+
+      setMessage({ text: "Oeuvre ajoutee et synchronisee avec succes !", type: "success" });
+      if (onOeuvreAdded) onOeuvreAdded();
+      setTimeout(() => onClose(), 1200);
     } catch (err) {
       console.error("Erreur :", err.response?.data || err);
-      alert("Erreur lors de l’ajout ou de la synchro.");
+      setMessage({ text: "Erreur lors de l'ajout ou de la synchronisation.", type: "error" });
+    } finally {
+      setSubmitting(false);
     }
   };
-  
-
-
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-gray-800 text-white p-6 rounded shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-xl font-bold mb-6">Ajouter une œuvre</h3>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fadeIn">
+      <div className="relative bg-gray-900 text-white p-8 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 hover:bg-red-600 text-gray-400 hover:text-white transition"
+          aria-label="Fermer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+
+        <h3 className="text-2xl font-bold mb-8 border-b border-gray-700 pb-2">Ajouter une oeuvre</h3>
+
+        {message.text && (
+          <div className={`mb-6 p-3 rounded-lg text-sm font-medium ${message.type === "error" ? "bg-red-900/50 text-red-400 border border-red-800" : "bg-green-900/50 text-green-400 border border-green-800"}`}>
+            {message.text}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-1">Titre :</label>
-            <input
-              type="text"
-              name="titre"
-              value={formData.titre}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-              required
-            />
+            <label className="block text-sm font-semibold mb-1">Titre</label>
+            <input type="text" name="titre" value={formData.titre} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" required />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Titre alternatif :</label>
-            <input
-              type="text"
-              name="titrealt"
-              value={formData.titrealt}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            />
+            <label className="block text-sm font-semibold mb-1">Titre alternatif</label>
+            <input type="text" name="titrealt" value={formData.titrealt} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Auteur :</label>
-            <input
-              type="text"
-              name="auteur"
-              value={formData.auteur}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            />
+            <label className="block text-sm font-semibold mb-1">Auteur</label>
+            <input type="text" name="auteur" value={formData.auteur} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Année :</label>
-            <input
-              type="number"
-              name="annee"
-              value={formData.annee}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            />
+            <label className="block text-sm font-semibold mb-1">Annee</label>
+            <input type="number" name="annee" value={formData.annee} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Type :</label>
-            <input
-              type="text"
-              name="type"
-              value={formData.type}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            />
+            <label className="block text-sm font-semibold mb-1">Type</label>
+            <input type="text" name="type" value={formData.type} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Catégorie :</label>
-            <input
-              type="text"
-              name="categorie"
-              value={formData.categorie}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            />
+            <label className="block text-sm font-semibold mb-1">Categorie</label>
+            <input type="text" name="categorie" value={formData.categorie} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
+
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Synopsis :</label>
-            <div className="bg-gray-700 p-2 rounded border border-gray-600">
-              <div className="mb-2 space-x-2">
-                <button
-                  type="button"
-                  onClick={() => handleEditorCommand("bold")}
-                  className="px-2 py-1 bg-blue-500 text-white rounded"
-                >
-                  Gras
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleEditorCommand("italic")}
-                  className="px-2 py-1 bg-blue-500 text-white rounded"
-                >
-                  Italique
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleEditorCommand("underline")}
-                  className="px-2 py-1 bg-blue-500 text-white rounded"
-                >
-                  Souligné
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleEditorCommand("insertImage")}
-                  className="px-2 py-1 bg-blue-500 text-white rounded"
-                >
-                  Ajouter Image
-                </button>
-              </div>
-              <div
-                ref={editorRef}
-                contentEditable
-                className="min-h-[200px] bg-gray-800 p-2 rounded text-white overflow-y-auto"
-                style={{ outline: "none", maxHeight: "300px" }}
-              ></div>
-            </div>
+            <label className="block text-sm font-semibold mb-2">Synopsis</label>
+            <RichEditor value={synopsis} onChange={setSynopsis} height={250} placeholder="Ecrivez le synopsis..." />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">État :</label>
-            <select
-              name="etat"
-              value={formData.etat}
-              onChange={handleInputChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            >
+            <label className="block text-sm font-semibold mb-1">Etat</label>
+            <select name="etat" value={formData.etat} onChange={handleInputChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition">
               <option value="En cours">En cours</option>
-              <option value="Arrêter">Arrêter</option>
+              <option value="Arreter">Arreter</option>
               <option value="En pause">En pause</option>
               <option value="Terminer">Terminer</option>
               <option value="Libre">Libre</option>
             </select>
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Couverture :</label>
-            <input
-              type="file"
-              onChange={handleFileChange}
-              className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            />
+            <label className="block text-sm font-semibold mb-1">Couverture</label>
+            {couverturePreview && (
+              <img src={couverturePreview} alt="Preview" className="mb-3 max-h-32 object-cover rounded-lg" />
+            )}
+            <input type="file" accept="image/*" onChange={handleFileChange}
+              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
           </div>
-          <div className="md:col-span-2 flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-red-600 px-4 py-2 rounded hover:bg-red-500"
-            >
+
+          <div className="md:col-span-2 flex justify-end gap-4 pt-4">
+            <button type="button" onClick={onClose}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2 rounded-lg font-semibold transition">
               Annuler
             </button>
-            <button
-              type="submit"
-              className="bg-green-600 px-4 py-2 rounded hover:bg-green-500"
-            >
-              Enregistrer
+            <button type="submit" disabled={submitting}
+              className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg font-semibold transition disabled:opacity-50 flex items-center gap-2">
+              {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {submitting ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         </form>

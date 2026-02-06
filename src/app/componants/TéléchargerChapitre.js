@@ -8,7 +8,6 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
   const [order, setOrder] = useState("");
   const [pdfFile, setPdfFile] = useState(null); // Pour le fichier PDF
   const [message, setMessage] = useState("");
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Récupérer l'URL de l'API depuis l'environnement
   
   const handleFileChange = (e) => {
     setPdfFile(e.target.files[0]); // Stocke le fichier sélectionné
@@ -41,7 +40,7 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
       const formData = new FormData();
       formData.append("files", pdfFile);
 
-      const uploadRes = await fetch(`${apiUrl}/api/upload`, {
+      const uploadRes = await fetch(`/api/proxy/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${jwt}`,
@@ -75,7 +74,7 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
       };
 
   
-      const res = await fetch(`${apiUrl}/api/chapitres`, {
+      const res = await fetch(`/api/proxy/chapitres`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,22 +1,24 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
+import dynamic from "next/dynamic";
+
+const RichEditor = dynamic(() => import("../../componants/RichEditor"), { ssr: false });
 
 const MoChapitre = () => {
   const router = useRouter();
-  const { documentid } = useParams(); // Récupère le documentid depuis l'URL
+  const { documentid } = useParams();
   const [formData, setFormData] = useState({
     titre: "",
     order: "",
-    texte: "",
     tome: "",
   });
-  const editorRef = useRef(null); // Référence pour l'éditeur de texte riche
+  const [texte, setTexte] = useState("");
   const [message, setMessage] = useState("");
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
   useEffect(() => {
     const fetchChapitre = async () => {
       try {
@@ -26,8 +28,7 @@ const MoChapitre = () => {
           return;
         }
 
-        // Récupère les données du chapitre via l'API
-        const res = await axios.get(`${apiUrl}/api/chapitres/${documentid}`, {
+        const res = await axios.get(`/api/proxy/chapitres/${documentid}`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },
@@ -35,40 +36,27 @@ const MoChapitre = () => {
 
         const chapitre = res.data.data;
 
-        // Met à jour les champs avec les données récupérées
         setFormData({
           titre: chapitre.titre || "",
           order: chapitre.order || "",
-          texte: chapitre.texte
-            .map((t) => t.children[0]?.text || "")
-            .join("\n"), // Convertir en sauts de ligne
           tome: chapitre.tome || "",
         });
 
-        // Insère le texte dans l'éditeur riche avec sauts de ligne
-        if (editorRef.current) {
-          const texteHTML = chapitre.texte
-            .map((t) => `<p>${t.children[0]?.text || ""}</p>`)
-            .join("");
-          editorRef.current.innerHTML = texteHTML;
-        }
+        // Convert Strapi format to HTML for TinyMCE
+        const texteHTML = chapitre.texte
+          ? chapitre.texte
+              .map((t) => `<p>${t.children?.[0]?.text || ""}</p>`)
+              .join("")
+          : "";
+        setTexte(texteHTML);
       } catch (error) {
-        console.error("Erreur lors de la récupération du chapitre :", error);
-        setMessage("Erreur lors de la récupération du chapitre.");
+        console.error("Erreur lors de la recuperation du chapitre :", error);
+        setMessage("Erreur lors de la recuperation du chapitre.");
       }
     };
 
     fetchChapitre();
   }, [documentid]);
-
-  const handleEditorCommand = (command, value = null) => {
-    document.execCommand(command, false, value);
-  };
-
-  const handleTextColor = (color) => {
-    document.execCommand("foreColor", false, color);
-  };
-  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -78,11 +66,7 @@ const MoChapitre = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Récupère le texte formaté depuis l'éditeur riche
-    const texteHTML = editorRef.current.innerHTML.trim();
-
-    // Transforme le texte HTML en structure avec les retours à la ligne
-    const formattedTexte = texteHTML
+    const formattedTexte = texte
       .split(/<p>|<\/p>/)
       .filter((line) => line.trim() !== "")
       .map((line) => ({
@@ -90,7 +74,14 @@ const MoChapitre = () => {
         children: [{ type: "text", text: line.replace(/<br>/g, "\n").trim() }],
       }));
 
-    if (!formData.titre || !formData.order || !texteHTML) {
+    if (formattedTexte.length === 0) {
+      formattedTexte.push({
+        type: "paragraph",
+        children: [{ type: "text", text: texte.replace(/<[^>]+>/g, "") }],
+      });
+    }
+
+    if (!formData.titre || !formData.order || !texte) {
       alert("Veuillez remplir tous les champs obligatoires !");
       return;
     }
@@ -111,14 +102,14 @@ const MoChapitre = () => {
         },
       };
 
-      const res = await axios.put(`${apiUrl}/api/chapitres/${documentid}`, payload, {
+      await axios.put(`/api/proxy/chapitres/${documentid}`, payload, {
         headers: {
           Authorization: `Bearer ${jwt}`,
         },
       });
 
-      setMessage("Chapitre modifié avec succès !");
-      router.back(); // Retourne à la page précédente
+      setMessage("Chapitre modifie avec succes !");
+      router.back();
     } catch (error) {
       console.error("Erreur lors de la modification :", error);
       setMessage("Erreur lors de la modification.");
@@ -171,66 +162,12 @@ const MoChapitre = () => {
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Texte :</label>
-          <div className="bg-gray-700 p-2 rounded border border-gray-600">
-            {/* Barre d'outils */}
-            <div className="mb-2 space-x-2">
-              <button
-                type="button"
-                onClick={() => handleEditorCommand("bold")}
-                className="px-2 py-1 bg-blue-500 text-white rounded"
-              >
-                Gras
-              </button>
-              <button
-                type="button"
-                onClick={() => handleEditorCommand("italic")}
-                className="px-2 py-1 bg-blue-500 text-white rounded"
-              >
-                Italique
-              </button>
-              <button
-                type="button"
-                onClick={() => handleEditorCommand("underline")}
-                className="px-2 py-1 bg-blue-500 text-white rounded"
-              >
-                Souligné
-              </button>
-              <select
-                onChange={(e) => handleEditorCommand("fontSize", e.target.value)}
-                className="bg-gray-700 text-white px-2 py-1 rounded"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Taille de police
-                </option>
-                <option value="1">Très petite</option>
-                <option value="2">Petite</option>
-                <option value="3">Normale</option>
-                <option value="4">Grande</option>
-                <option value="5">Très grande</option>
-                <option value="6">Énorme</option>
-                <option value="7">Gigantesque</option>
-              </select>
-
-              <button
-  type="button"
-  onClick={() => handleTextColor("#D3D3D3")}  // Applique la couleur gris clair
-  className="px-2 py-1 bg-gray-500 text-white rounded"
->
-  Couleur Texte
-</button>
-
-
-            </div>
-
-            {/* Conteneur éditable */}
-            <div
-              ref={editorRef}
-              contentEditable
-              className="min-h-[200px] bg-gray-800 p-2 rounded text-white overflow-y-auto"
-              style={{ outline: "none", maxHeight: "300px" }}
-            ></div>
-          </div>
+          <RichEditor
+            value={texte}
+            onChange={setTexte}
+            height={400}
+            placeholder="Contenu du chapitre..."
+          />
         </div>
         <div className="flex justify-end space-x-4">
           <button

@@ -1,64 +1,55 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import FicheOeuvre from "./componants/FicheOeuvre"; // Import du composant FicheOeuvre
+import { useRouter } from "next/navigation";
+import FicheOeuvre from "./componants/FicheOeuvre";
 
 export default function Home() {
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [dailyReleases, setDailyReleases] = useState([]);
-  const [selectedOeuvre, setSelectedOeuvre] = useState(null); // Oeuvre sélectionnée pour le composant FicheOeuvre
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  useEffect(() => {
-    const fetchDailyReleases = async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const url = `${apiUrl}/api/chapitres?filters[updatedAt][$gte]=${today}T00:00:00&populate=oeuvres.couverture`;
+  const [popularOeuvres, setPopularOeuvres] = useState([]);
+  const [selectedOeuvre, setSelectedOeuvre] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const router = useRouter();
 
+  // Catégories disponibles
+  const categories = [
+    { name: "Light Novel", icon: "📖", color: "from-purple-500 to-indigo-600" },
+    { name: "Web Novel", icon: "🌐", color: "from-blue-500 to-cyan-600" },
+    { name: "Manga", icon: "📚", color: "from-pink-500 to-rose-600" },
+    { name: "Manhua", icon: "🎨", color: "from-orange-500 to-amber-600" },
+    { name: "Manhwa", icon: "✨", color: "from-green-500 to-emerald-600" },
+    { name: "Fan Fiction", icon: "✍️", color: "from-red-500 to-pink-600" },
+  ];
+
+  useEffect(() => {
+    const fetchPopularOeuvres = async () => {
       try {
+        const url = `/api/proxy/oeuvres?populate=couverture&pagination[limit]=8&sort=createdAt:desc`;
         const res = await fetch(url);
         const data = await res.json();
-
-        const uniqueOeuvres = {};
-        data.data.forEach((chapitre) => {
-          const oeuvre = chapitre.oeuvres[0];
-          if (oeuvre && !uniqueOeuvres[oeuvre.id]) {
-            uniqueOeuvres[oeuvre.id] = {
-              ...oeuvre,
-              chapitres: [],
-            };
-          }
-          if (oeuvre) {
-            uniqueOeuvres[oeuvre.id].chapitres.push({
-              titre: chapitre.titre,
-              publishedAt: chapitre.publishedAt,
-            });
-          }
-        });
-
-        setDailyReleases(Object.values(uniqueOeuvres));
+        setPopularOeuvres(data.data || []);
       } catch (error) {
-        console.error("Erreur lors de la récupération des sorties du jour :", error);
+        console.error("Erreur lors de la récupération des œuvres populaires :", error);
       }
     };
 
-    fetchDailyReleases();
+    fetchPopularOeuvres();
   }, []);
 
   const handleSearch = async () => {
+    if (!searchText.trim()) return;
+    setIsSearching(true);
     try {
-
-      const url = `${apiUrl}/api/oeuvres?filters[titre][$containsi]=${searchText}&populate=*`;
-  
-
+      const url = `/api/proxy/oeuvres?filters[titre][$containsi]=${searchText}&populate=*`;
       const res = await fetch(url);
       const data = await res.json();
-
-     
-
       setSearchResults(data.data);
     } catch (error) {
       console.error("Erreur lors de la recherche :", error);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -66,153 +57,385 @@ export default function Home() {
     if (e.key === "Enter") {
       handleSearch();
     }
+    if (e.key === "Escape") {
+      setIsSearchOpen(false);
+    }
   };
 
   const handleOeuvreClick = (oeuvre) => {
-    setSelectedOeuvre(oeuvre); // Définit l'œuvre sélectionnée pour afficher FicheOeuvre
+    setSelectedOeuvre(oeuvre);
   };
 
   const closeFicheOeuvre = () => {
-    setSelectedOeuvre(null); // Réinitialise l'œuvre sélectionnée pour fermer FicheOeuvre
+    setSelectedOeuvre(null);
+  };
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setSearchText("");
+    setSearchResults([]);
   };
 
   return (
-    <div className="relative">
-      {/* Hero Header */}
+    <div className="relative bg-gray-950">
+      {/* Hero Header - Redesigned */}
       <div
-        className="relative h-screen w-full bg-cover bg-center"
+        className="relative min-h-screen w-full bg-cover bg-center"
         style={{
           backgroundImage: `url('/images/HeroHeader.webp')`,
           backgroundAttachment: "fixed",
         }}
       >
-        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+        {/* Overlay avec gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-gray-950"></div>
 
-        <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-white px-4">
-          <h1 className="text-5xl md:text-6xl font-bold mb-4">
-            Bienvenue sur Trad-Index
+        {/* Contenu Hero */}
+        <div className="relative z-10 flex flex-col justify-center items-center min-h-screen text-center text-white px-4 py-20">
+          {/* Badge */}
+          <div className="mb-6 animate-fade-in">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-sm font-medium">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              Plateforme active • Mises à jour quotidiennes
+            </span>
+          </div>
+
+          {/* Titre principal */}
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-6 tracking-tight">
+            <span className="bg-gradient-to-r from-white via-purple-200 to-indigo-300 bg-clip-text text-transparent">
+              Trad-Index
+            </span>
           </h1>
-          <p className="text-lg md:text-2xl mb-6">
-            Explorez et découvrez notre univers.
+
+          {/* Sous-titre */}
+          <p className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-4 max-w-2xl leading-relaxed">
+            Votre portail vers les meilleures traductions françaises
           </p>
-          <input
-            type="text"
-            placeholder="Rechercher une œuvre"
-            className="px-4 py-2 rounded-md text-gray-900 focus:outline-none w-3/4 max-w-lg"
+          <p className="text-base text-gray-400 mb-10 max-w-xl">
+            Light novels, web novels, manhwas et plus encore — découvrez des milliers de chapitres traduits par la communauté.
+          </p>
+
+          {/* Barre de recherche */}
+          <div 
+            className="w-full max-w-xl group cursor-pointer"
             onClick={() => setIsSearchOpen(true)}
-          />
+          >
+            <div className="relative flex items-center bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 transition-all duration-300 hover:bg-white/15 hover:border-white/30 hover:scale-[1.02]">
+              <div className="pl-5 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Rechercher une œuvre, un auteur..."
+                className="w-full px-4 py-4 bg-transparent text-white placeholder-gray-400 focus:outline-none cursor-pointer"
+                readOnly
+              />
+              <div className="pr-4">
+                <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs text-gray-400 bg-white/10 rounded-lg border border-white/20">
+                  Entrée
+                </kbd>
+              </div>
+            </div>
+          </div>
+
+          {/* Boutons CTA */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-10">
+            <button
+              onClick={() => router.push("/oeuvres")}
+              className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-300 hover:scale-105"
+            >
+              Explorer le catalogue
+            </button>
+            <button
+              onClick={() => router.push("/inscription")}
+              className="px-8 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl font-semibold text-white hover:bg-white/20 transition-all duration-300"
+            >
+              Rejoindre la communauté
+            </button>
+          </div>
+
+          {/* Stats rapides */}
+          <div className="flex flex-wrap justify-center gap-8 mt-16 pt-8 border-t border-white/10">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-white">1000+</p>
+              <p className="text-sm text-gray-400">Œuvres indexées</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-white">50K+</p>
+              <p className="text-sm text-gray-400">Chapitres traduits</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-white">100+</p>
+              <p className="text-sm text-gray-400">Traducteurs actifs</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <svg className="w-6 h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
         </div>
       </div>
 
-      {/* Sorties du jour */}
-      <div className="bg-gray-900 text-white p-8">
-        <h2 className="text-3xl font-bold mb-6">Sortie du jour !</h2>
-        {dailyReleases.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {dailyReleases.map((oeuvre) => (
-              <div
-                key={oeuvre.id}
-                className="relative bg-gray-800 rounded-lg shadow-lg overflow-hidden cursor-pointer"
-                onClick={() => handleOeuvreClick(oeuvre)}
-              >
-                {oeuvre.couverture?.[0]?.url && (
-                  <div
-                    className="h-64 bg-cover bg-center"
-                    style={{
-                      backgroundImage: `url('${oeuvre.couverture[0].url}')`,
-                    }}
-                  ></div>
-                )}
-                <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-gray-900 opacity-90 px-4 py-2">
-                  <div className="flex space-x-2 mb-2">
-                    <span className="bg-black bg-opacity-70 text-white px-3 py-1 text-sm rounded-md">
-                      {oeuvre.type}
-                    </span>
-                    <span className="bg-black bg-opacity-70 text-white px-3 py-1 text-sm rounded-md">
-                      {oeuvre.categorie}
-                    </span>
-                  </div>
-                  <p className="font-bold text-lg text-white">
-                    {oeuvre.titre || "Titre non disponible"}
-                  </p>
-                </div>
+      {/* Sorties du jour - Redirection vers novel-index.com */}
+      <section className="bg-gray-950 py-16 px-4 sm:px-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900/50 via-purple-900/50 to-pink-900/50 border border-white/10 p-8 sm:p-12">
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl"></div>
+            
+            <div className="relative z-10 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 text-green-400 text-sm font-medium mb-6">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                Mises à jour quotidiennes
               </div>
+              
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4">
+                Sorties du jour
+              </h2>
+              
+              <p className="text-gray-300 text-lg mb-8 max-w-xl mx-auto">
+                Retrouvez toutes nos sorties quotidiennes sur notre plateforme principale pour ne rien manquer des derniers chapitres.
+              </p>
+              
+              <a
+                href="https://novel-index.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-300 hover:scale-105 group"
+              >
+                <span>Voir les sorties sur novel-index.com</span>
+                <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Catégories */}
+      <section className="bg-gray-900 py-16 px-4 sm:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">Explorez par catégorie</h2>
+            <p className="text-gray-400">Trouvez exactement ce que vous cherchez</p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {categories.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => router.push(`/oeuvres?category=${encodeURIComponent(cat.name)}`)}
+                className={`group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br ${cat.color} transition-all duration-300 hover:scale-105 hover:shadow-lg`}
+              >
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                <div className="relative text-center">
+                  <span className="text-3xl mb-2 block">{cat.icon}</span>
+                  <span className="text-white font-semibold text-sm">{cat.name}</span>
+                </div>
+              </button>
             ))}
           </div>
-        ) : (
-          <p className="text-gray-400">Aucun chapitre n'est actuellement sorti.</p>
-        )}
-      </div>
+        </div>
+      </section>
+
+      {/* Œuvres populaires */}
+      {popularOeuvres.length > 0 && (
+        <section className="bg-gray-950 py-16 px-4 sm:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-1 h-8 bg-gradient-to-b from-orange-500 to-red-500 rounded-full"></div>
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white">Récemment ajoutées</h2>
+                  <p className="text-gray-400 text-sm mt-1">Les dernières œuvres sur la plateforme</p>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push("/oeuvres")}
+                className="text-indigo-400 hover:text-indigo-300 font-medium text-sm flex items-center gap-1 transition-colors"
+              >
+                Voir tout
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+              {popularOeuvres.slice(0, 8).map((oeuvre) => (
+                <div
+                  key={oeuvre.id}
+                  className="group cursor-pointer"
+                  onClick={() => handleOeuvreClick(oeuvre)}
+                >
+                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800">
+                    {oeuvre.couverture?.[0]?.url ? (
+                      <img
+                        src={oeuvre.couverture[0].url}
+                        alt={oeuvre.titre}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
+                        <span className="text-4xl">📖</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg text-white font-medium text-sm">
+                        Voir détails
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="font-semibold text-white text-sm line-clamp-2 group-hover:text-indigo-300 transition-colors">
+                    {oeuvre.titre}
+                  </h3>
+                  {oeuvre.type && (
+                    <p className="text-gray-500 text-xs mt-1">{oeuvre.type}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* CTA Section */}
+      <section className="bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 py-20 px-4 sm:px-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+            Prêt à contribuer ?
+          </h2>
+          <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
+            Rejoignez notre communauté de passionnés. Partagez vos traductions, découvrez de nouvelles œuvres et connectez-vous avec d'autres fans.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => router.push("/inscription")}
+              className="px-8 py-4 bg-white text-indigo-900 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+            >
+              Créer un compte gratuit
+            </button>
+            <button
+              onClick={() => router.push("/oeuvres")}
+              className="px-8 py-4 bg-white/10 border border-white/30 text-white rounded-xl font-semibold hover:bg-white/20 transition-all duration-300"
+            >
+              Parcourir les œuvres
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Fiche Oeuvre (Pop-up) */}
       {selectedOeuvre && (
         <FicheOeuvre oeuvre={selectedOeuvre} onClose={closeFicheOeuvre} />
       )}
 
-      {/* Recherche Plein Écran */}
+      {/* Recherche Plein Écran - Redesigned */}
       {isSearchOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center">
-          <div className="w-full max-w-2xl p-4">
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Rechercher une œuvre..."
-              className="w-full px-4 py-3 rounded-md text-gray-900 focus:outline-none"
-              autoFocus
-            />
-            <button
-              onClick={handleSearch}
-              className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md"
-            >
-              Rechercher
-            </button>
-          </div>
-
-          <div className="mt-6 w-full max-w-2xl bg-gray-800 rounded-lg p-4">
-            {searchResults.length > 0 ? (
-              <ul>
-                {searchResults.map((oeuvre) => (
-                  <li
-                    key={oeuvre.id}
-                    className="p-4 border-b border-gray-700 hover:bg-gray-700 cursor-pointer flex items-center"
-                    onClick={() => {
-                      handleOeuvreClick(oeuvre);
-                      setIsSearchOpen(false);
-                    }}
-                  >
-                    {oeuvre.couverture?.length > 0 && (
-                      <img
-                        src={`${oeuvre.couverture.url}`}
-                        alt={oeuvre.titre || "Image non disponible"}
-                        className="w-16 h-16 object-cover rounded-md mr-4"
-                      />
-                    )}
-                    <div>
-                      <h3 className="text-xl font-bold">
-                        {oeuvre.titre || "Titre non disponible"}
-                      </h3>
-                      <p className="text-sm text-gray-400">
-                        Auteur : {oeuvre.auteur || "Auteur non spécifié"}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-400 text-center">
-                Aucun résultat pour cette recherche.
-              </p>
-            )}
-          </div>
-
+        <div 
+          className="fixed inset-0 bg-black/95 backdrop-blur-xl z-50 flex flex-col items-center pt-20 px-4"
+          onClick={(e) => e.target === e.currentTarget && closeSearch()}
+        >
+          {/* Bouton fermer */}
           <button
-            onClick={() => setIsSearchOpen(false)}
-            className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
+            onClick={closeSearch}
+            className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
           >
-            Fermer
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
+
+          {/* Contenu recherche */}
+          <div className="w-full max-w-2xl">
+            <div className="relative mb-6">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Rechercher une œuvre..."
+                className="w-full pl-14 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-lg"
+                autoFocus
+              />
+              {searchText && (
+                <button
+                  onClick={() => setSearchText("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Hint */}
+            <p className="text-gray-500 text-sm text-center mb-6">
+              Appuyez sur <kbd className="px-2 py-1 bg-white/10 rounded text-gray-400">Entrée</kbd> pour rechercher ou <kbd className="px-2 py-1 bg-white/10 rounded text-gray-400">Échap</kbd> pour fermer
+            </p>
+
+            {/* Résultats */}
+            <div className="max-h-[60vh] overflow-y-auto rounded-2xl">
+              {isSearching ? (
+                <div className="text-center py-12">
+                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-400">Recherche en cours...</p>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div className="space-y-2">
+                  {searchResults.map((oeuvre) => (
+                    <div
+                      key={oeuvre.id}
+                      className="flex items-center gap-4 p-4 bg-white/5 hover:bg-white/10 rounded-xl cursor-pointer transition-colors"
+                      onClick={() => {
+                        handleOeuvreClick(oeuvre);
+                        closeSearch();
+                      }}
+                    >
+                      {oeuvre.couverture?.[0]?.url ? (
+                        <img
+                          src={oeuvre.couverture[0].url}
+                          alt={oeuvre.titre}
+                          className="w-16 h-20 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-16 h-20 bg-gray-800 rounded-lg flex items-center justify-center">
+                          <span className="text-2xl">📖</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-semibold truncate">{oeuvre.titre}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {oeuvre.auteur || "Auteur inconnu"} • {oeuvre.type || "Type inconnu"}
+                        </p>
+                      </div>
+                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  ))}
+                </div>
+              ) : searchText && !isSearching ? (
+                <div className="text-center py-12 bg-white/5 rounded-2xl">
+                  <div className="text-4xl mb-4">🔍</div>
+                  <p className="text-gray-400">Aucun résultat pour "{searchText}"</p>
+                  <p className="text-gray-500 text-sm mt-2">Essayez avec d'autres mots-clés</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
     </div>

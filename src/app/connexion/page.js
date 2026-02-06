@@ -3,52 +3,48 @@
 import { useState } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation"; // Utilisé pour la redirection
+import { useRouter } from "next/navigation";
 
-export default function Connection() {
+export default function Connexion() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter(); // Next.js Router pour la redirection
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const router = useRouter();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      // Appel à l'API Strapi pour authentification
-      const response = await axios.post(
-        `https://my-strapi-project-yysn.onrender.com/api/auth/local`,
-        {
-          identifier,
-          password,
-        }
-      );
+      // Authentification via Strapi
+      const response = await axios.post(`/api/proxy/auth/local`, {
+        identifier,
+        password,
+      });
 
-      // Stocker le token JWT dans un cookie
-      Cookies.set("jwt", response.data.jwt, { expires: 7 });
+      const jwt = response.data.jwt;
 
-      // Récupérer les informations utilisateur
-      const userInfoResponse = await axios.get(
-        `${apiUrl}/api/users/me`,
-        {
-          headers: {
-            Authorization: `Bearer ${response.data.jwt}`,
-          },
-        }
-      );
+      // Stockage du token dans localStorage + cookies
+      localStorage.setItem("jwt", jwt);
+      Cookies.set("jwt", jwt, { expires: 7 });
+
+      // Récupération des infos utilisateur
+      const userInfoResponse = await axios.get(`/api/proxy/users/me`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
 
       const userInfo = userInfoResponse.data;
 
-      // Stocker les informations utilisateur (optionnel)
+      // Stockage des infos utilisateur (optionnel)
       Cookies.set("userInfo", JSON.stringify(userInfo), { expires: 7 });
 
-
-
-      // Rediriger vers la page d'administration
+      // Redirection
       router.push("/profil");
+
     } catch (err) {
       console.error(err);
       setError("Identifiants invalides. Veuillez réessayer.");
@@ -67,7 +63,7 @@ export default function Connection() {
               htmlFor="identifier"
               className="block text-sm font-medium text-gray-300"
             >
-              Email:
+              Email :
             </label>
             <input
               type="text"
@@ -83,7 +79,7 @@ export default function Connection() {
               htmlFor="password"
               className="block text-sm font-medium text-gray-300"
             >
-              Mot de passe:
+              Mot de passe :
             </label>
             <input
               type="password"

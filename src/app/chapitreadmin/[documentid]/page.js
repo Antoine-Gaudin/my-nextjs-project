@@ -28,7 +28,7 @@ const ChapitreAdmin = () => {
 
       try {
         const res = await fetch(
-          `${apiUrl}/api/oeuvres/${documentid}?populate=chapitres`,
+          `/api/proxy/oeuvres/${documentid}?populate=chapitres`,
           {
             headers: {
               Authorization: `Bearer ${jwt}`,
@@ -79,7 +79,7 @@ const ChapitreAdmin = () => {
 
     const jwt = Cookies.get("jwt");
     try {
-      const res = await fetch(`${apiUrl}/api/chapitres/${chapterDocumentId}`, {
+      const res = await fetch(`/api/proxy/chapitres/${chapterDocumentId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ const ChapitreAdmin = () => {
     if (!confirm("Voulez-vous vraiment supprimer ce chapitre ?")) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/chapitres/${chapterDocumentId}`, {
+      const res = await fetch(`/api/proxy/chapitres/${chapterDocumentId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${jwt}`,

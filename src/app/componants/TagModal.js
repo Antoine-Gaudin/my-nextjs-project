@@ -7,20 +7,20 @@ const TagModal = ({ oeuvreId, onClose, onTagUpdate }) => {
   const [filteredTags, setFilteredTags] = useState([]);
   const [oeuvreTags, setOeuvreTags] = useState([]);
   const [oeuvre, setOeuvre] = useState(null);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  
   useEffect(() => {
     const fetchOeuvreAndTags = async () => {
       try {
         // Récupération de l'œuvre
         const oeuvreRes = await axios.get(
-          `${apiUrl}/api/oeuvres/${oeuvreId}?populate=tags`
+          `/api/proxy/oeuvres/${oeuvreId}?populate=tags`
         );
         const fetchedOeuvre = oeuvreRes.data.data;
         setOeuvre(fetchedOeuvre);
         setOeuvreTags(fetchedOeuvre.tags || []);
 
         // Récupération des tags disponibles
-        const tagRes = await axios.get(`${apiUrl}/api/tags`);
+        const tagRes = await axios.get(`/api/proxy/tags`);
         setTags(tagRes.data.data || []);
       } catch (error) {
         console.error("Erreur lors de la récupération des données :", error);
@@ -54,7 +54,7 @@ const TagModal = ({ oeuvreId, onClose, onTagUpdate }) => {
     }
 
     try {
-      const res = await axios.post(`${apiUrl}/api/tags`, {
+      const res = await axios.post(`/api/proxy/tags`, {
         data: { nom: tagSearchTerm },
       });
       const newTag = res.data.data;
@@ -86,7 +86,7 @@ const TagModal = ({ oeuvreId, onClose, onTagUpdate }) => {
             tags.find((tag) => tag.documentId === tagDocumentId),
           ];
 
-      await axios.put(`${apiUrl}/api/oeuvres/${oeuvre.documentId}`, {
+      await axios.put(`/api/proxy/oeuvres/${oeuvre.documentId}`, {
         data: { tags: updatedTags.map((tag) => tag.documentId) },
       });
 

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next build:*)",
+      "Bash(timeout:*)",
+      "Bash(npm ls:*)",
+      "Bash(xcopy:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}
