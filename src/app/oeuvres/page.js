@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import FicheOeuvre from "../componants/FicheOeuvre";
 
-export default function Oeuvres() {
+function OeuvresContent() {
   const [oeuvres, setOeuvres] = useState([]);
   const [selectedOeuvre, setSelectedOeuvre] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -402,5 +402,17 @@ export default function Oeuvres() {
         <FicheOeuvre oeuvre={selectedOeuvre} onClose={closeFicheOeuvre} />
       )}
     </div>
+  );
+}
+
+export default function Oeuvres() {
+  return (
+    <Suspense fallback={
+      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    }>
+      <OeuvresContent />
+    </Suspense>
   );
 }
