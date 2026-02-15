@@ -1,22 +1,33 @@
 "use client";
 
+import Image from "next/image";
+
 export default function TeamCard({ team, user, onClick }) {
   const isOwner = team.owner?.id === user?.id || team.owner === user?.id;
-  const membersCount = team.membres?.length || 0;
+  const ownerId = team.owner?.id || team.owner;
+  // Eviter de compter le owner en double s'il est aussi dans membres
+  const membersWithoutOwner = (team.membres || []).filter((m) => m.id !== ownerId);
+  const membersCount = membersWithoutOwner.length + 1; // +1 pour le owner
   const oeuvresCount = team.oeuvres?.length || 0;
+  const logoUrl = Array.isArray(team.logo) ? team.logo?.[0]?.url : team.logo?.url;
 
   return (
     <div
       onClick={onClick}
-      className="group bg-gray-900/50 hover:bg-gray-800/70 border border-gray-800/50 hover:border-indigo-600/30 rounded-2xl p-4 cursor-pointer transition-all duration-200"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
+      role="button"
+      tabIndex={0}
+      className="group relative bg-gray-900/50 hover:bg-gray-800/70 border border-gray-800/50 hover:border-indigo-600/30 rounded-2xl p-4 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-600/50"
     >
       {/* Header avec logo */}
       <div className="flex items-start gap-3 mb-4">
-        {team.logo?.[0]?.url ? (
-          <img
-            src={team.logo[0].url}
+        {logoUrl ? (
+          <Image
+            src={logoUrl}
             alt={team.nom}
             className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+            width={56}
+            height={56}
           />
         ) : (
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center flex-shrink-0">
@@ -30,11 +41,11 @@ export default function TeamCard({ team, user, onClick }) {
             <h3 className="text-lg font-bold text-white truncate">{team.nom}</h3>
             {isOwner && (
               <span className="px-2 py-0.5 bg-amber-600/20 text-amber-400 text-xs font-medium rounded-full flex-shrink-0">
-                Owner
+                Fondateur
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500 truncate">
+          <p className="text-sm text-gray-400 truncate">
             @{team.slug || team.nom?.toLowerCase().replace(/\s+/g, "-")}
           </p>
         </div>
@@ -49,13 +60,13 @@ export default function TeamCard({ team, user, onClick }) {
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-sm">
-        <div className="flex items-center gap-1.5 text-gray-500">
+        <div className="flex items-center gap-1.5 text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
           </svg>
-          <span>{membersCount + 1} membres</span>
+          <span>{membersCount} membres</span>
         </div>
-        <div className="flex items-center gap-1.5 text-gray-500">
+        <div className="flex items-center gap-1.5 text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
@@ -65,7 +76,7 @@ export default function TeamCard({ team, user, onClick }) {
 
       {/* Visibility badge */}
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-800/50">
-        <div className={`flex items-center gap-1.5 text-xs ${team.isPublic ? "text-green-400" : "text-gray-500"}`}>
+        <div className={`flex items-center gap-1.5 text-xs ${team.isPublic ? "text-green-400" : "text-gray-400"}`}>
           {team.isPublic ? (
             <>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

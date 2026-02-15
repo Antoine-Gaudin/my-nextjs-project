@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Cookies from "js-cookie";
-
-const TEAMS_API = "http://localhost:1337/api";
 
 export default function TeamForm({ user, team, onClose, onSuccess }) {
   const isEditing = !!team;
@@ -17,7 +16,10 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
     isPublic: team?.isPublic ?? true,
   });
   const [logo, setLogo] = useState(null);
-  const [logoPreview, setLogoPreview] = useState(team?.logo?.[0]?.url || null);
+  const [logoPreview, setLogoPreview] = useState(
+    Array.isArray(team?.logo) ? team?.logo?.[0]?.url : team?.logo?.url || null
+  );
+  const [uploadStatus, setUploadStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,6 +45,11 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setError("Le logo ne doit pas dépasser 2 Mo");
+        return;
+      }
+      setError("");
       setLogo(file);
       setLogoPreview(URL.createObjectURL(file));
     }
@@ -78,8 +85,8 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
 
       // Créer ou mettre à jour la team
       const url = isEditing
-        ? `${TEAMS_API}/teams/${team.documentId}`
-        : `${TEAMS_API}/teams`;
+        ? `/api/proxy/teams/${team.documentId}`
+        : `/api/proxy/teams`;
 
       const res = await fetch(url, {
         method: isEditing ? "PUT" : "POST",
@@ -100,20 +107,26 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
 
       // Upload du logo si nouveau (après création de la team)
       if (logo) {
+        setUploadStatus("Envoi du logo...");
         const uploadData = new FormData();
         uploadData.append("files", logo);
         uploadData.append("ref", "api::team.team");
         uploadData.append("refId", savedTeam.data.id);
         uploadData.append("field", "logo");
 
-        const uploadRes = await fetch(`${TEAMS_API}/upload`, {
+        const uploadRes = await fetch(`/api/proxy/upload`, {
           method: "POST",
           headers: { Authorization: `Bearer ${jwt}` },
           body: uploadData,
         });
 
         if (!uploadRes.ok) {
-          console.error("Erreur upload logo, mais la team a été créée");
+          const uploadErr = await uploadRes.text();
+          console.error("Erreur upload logo:", uploadErr);
+          setUploadStatus("Logo non envoyé (la team a quand même été créée)");
+          // On continue quand même car la team a été créée
+        } else {
+          setUploadStatus("");
         }
       }
 
@@ -133,16 +146,17 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
         <button
           onClick={onClose}
           className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors"
+          aria-label="Retour"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h2 className="text-2xl font-bold text-white">
             {isEditing ? "Modifier la Team" : "Créer une Team"}
-          </h1>
-          <p className="text-gray-500">
+          </h2>
+          <p className="text-gray-400">
             {isEditing
               ? "Modifiez les informations de votre équipe"
               : "Créez une équipe pour collaborer sur vos projets"}
@@ -167,9 +181,9 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
               onClick={() => document.getElementById("logo-input").click()}
             >
               {logoPreview ? (
-                <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                <Image src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" fill sizes="80px" unoptimized />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500">
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -183,9 +197,12 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
                 className="hidden"
               />
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-400">
               <p>Cliquez pour ajouter un logo</p>
               <p>PNG, JPG • Max 2MB</p>
+              {uploadStatus && (
+                <p className="text-amber-400 mt-1">{uploadStatus}</p>
+              )}
             </div>
           </div>
         </div>
@@ -212,7 +229,7 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
             Slug (URL) <span className="text-red-400">*</span>
           </label>
           <div className="flex items-center">
-            <span className="px-4 py-3 bg-gray-900 border border-r-0 border-gray-700/50 rounded-l-xl text-gray-500 text-sm">
+            <span className="px-4 py-3 bg-gray-900 border border-r-0 border-gray-700/50 rounded-l-xl text-gray-400 text-sm">
               /team/
             </span>
             <input
@@ -221,6 +238,8 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
               value={formData.slug}
               onChange={handleChange}
               required
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              title="Uniquement des lettres minuscules, chiffres et tirets (ex: scan-trad-fr)"
               placeholder="scan-trad-fr"
               className="flex-1 px-4 py-3 bg-gray-800/50 border border-gray-700/50 focus:border-indigo-600/50 rounded-r-xl text-white placeholder-gray-500 outline-none transition-colors"
             />
@@ -243,9 +262,9 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
         {/* Liens */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Discord</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Discord <span className="text-gray-400 font-normal">(optionnel)</span></label>
             <input
-              type="url"
+              type="text"
               name="discord"
               value={formData.discord}
               onChange={handleChange}
@@ -254,9 +273,9 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Site web</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Site web <span className="text-gray-400 font-normal">(optionnel)</span></label>
             <input
-              type="url"
+              type="text"
               name="website"
               value={formData.website}
               onChange={handleChange}
@@ -271,7 +290,7 @@ export default function TeamForm({ user, team, onClose, onSuccess }) {
           <label className="flex items-center justify-between cursor-pointer">
             <div>
               <p className="text-white font-medium">Team publique</p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-400">
                 La team et ses œuvres seront visibles par tous
               </p>
             </div>

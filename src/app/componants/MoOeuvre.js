@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import axios from "axios";
 import Cookies from "js-cookie";
 import dynamic from "next/dynamic";
@@ -23,7 +24,6 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
   const [synopsis, setSynopsis] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
-  const apiToken = process.env.NEXT_PUBLIC_INDEX_API_TOKEN;
 
   useEffect(() => {
     if (oeuvre) {
@@ -47,7 +47,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
       if (oeuvre.couverture?.length > 0 && oeuvre.couverture[0]?.url) {
         setExistingCouverture(oeuvre.couverture[0].url);
       } else if (oeuvre.couverture?.url) {
-        setExistingCouverture(`${apiUrl}${oeuvre.couverture.url}`);
+        setExistingCouverture(oeuvre.couverture.url);
       }
     }
   }, [oeuvre]);
@@ -115,18 +115,17 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
         });
       }
 
-      // Sync novel-index
+      // Sync novel-index via route serveur
       try {
-        const indexSearchRes = await axios.get(
-          `https://novel-index-strapi.onrender.com/api/oeuvres?filters[titre][$eq]=${encodeURIComponent(oeuvre.titre)}`,
-          { headers: { Authorization: `Bearer ${apiToken}` } }
-        );
-
-        const indexOeuvre = indexSearchRes.data.data?.[0];
-        if (indexOeuvre) {
-          await axios.put(
-            `https://novel-index-strapi.onrender.com/api/oeuvres/${indexOeuvre.documentId}`,
-            {
+        await fetch('/api/novel-index', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({
+            action: 'sync-oeuvre',
+            payload: {
               data: {
                 titre: formData.titre,
                 titrealt: formData.titrealt,
@@ -138,23 +137,8 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
                 synopsis: plainText,
               },
             },
-            { headers: { Authorization: `Bearer ${apiToken}` } }
-          );
-
-          if (couverture) {
-            const uploadDataIndex = new FormData();
-            uploadDataIndex.append("files", couverture, couverture.name);
-            uploadDataIndex.append("ref", "api::oeuvre.oeuvre");
-            uploadDataIndex.append("refId", indexOeuvre.id);
-            uploadDataIndex.append("field", "couverture");
-
-            await axios.post(
-              "https://novel-index-strapi.onrender.com/api/upload",
-              uploadDataIndex,
-              { headers: { Authorization: `Bearer ${apiToken}` } }
-            );
-          }
-        }
+          }),
+        });
       } catch (syncErr) {
         console.error("Erreur sync novel-index :", syncErr);
       }
@@ -240,10 +224,13 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
           <div>
             <label className="block text-sm font-semibold mb-1">Couverture</label>
             {(couverturePreview || (existingCouverture && !couverture)) && (
-              <img
+              <Image
                 src={couverturePreview || existingCouverture}
                 alt="Couverture"
                 className="mb-3 max-h-32 object-cover rounded-lg"
+                width={200}
+                height={128}
+                unoptimized
               />
             )}
             <input type="file" accept="image/*" onChange={handleFileChange}

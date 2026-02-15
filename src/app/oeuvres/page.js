@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import FicheOeuvre from "../componants/FicheOeuvre";
 
 function OeuvresContent() {
@@ -273,10 +274,12 @@ function OeuvresContent() {
                 >
                   <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800 shadow-lg">
                     {oeuvre.couverture?.[0]?.url ? (
-                      <img
+                      <Image
                         src={oeuvre.couverture[0].url}
-                        alt={oeuvre.titre}
+                        alt={oeuvre.titre || "Couverture"}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        fill
+                        sizes="(max-width: 768px) 50vw, 25vw"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
@@ -309,7 +312,7 @@ function OeuvresContent() {
                   <h3 className="font-semibold text-white text-sm line-clamp-2 group-hover:text-indigo-400 transition-colors">
                     {oeuvre.titre || "Titre non disponible"}
                   </h3>
-                  <p className="text-gray-500 text-xs mt-1">
+                  <p className="text-gray-400 text-xs mt-1">
                     {oeuvre.auteur || "Auteur inconnu"}
                   </p>
                 </div>
@@ -325,12 +328,14 @@ function OeuvresContent() {
                   onClick={() => handleOeuvreClick(oeuvre)}
                 >
                   {/* Image */}
-                  <div className="w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
+                  <div className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
                     {oeuvre.couverture?.[0]?.url ? (
-                      <img
+                      <Image
                         src={oeuvre.couverture[0].url}
-                        alt={oeuvre.titre}
-                        className="w-full h-full object-cover"
+                        alt={oeuvre.titre || "Couverture"}
+                        className="object-cover"
+                        fill
+                        sizes="64px"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
@@ -344,7 +349,7 @@ function OeuvresContent() {
                     <h3 className="font-semibold text-white group-hover:text-indigo-400 transition-colors truncate">
                       {oeuvre.titre || "Titre non disponible"}
                     </h3>
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-gray-400 text-sm">
                       {oeuvre.auteur || "Auteur inconnu"}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-2">
@@ -362,7 +367,7 @@ function OeuvresContent() {
                   </div>
 
                   {/* Flèche */}
-                  <svg className="w-5 h-5 text-gray-500 group-hover:text-indigo-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-400 group-hover:text-indigo-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>

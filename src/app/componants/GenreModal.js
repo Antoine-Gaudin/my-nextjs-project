@@ -92,11 +92,6 @@ const GenreModal = ({ oeuvreId, onClose, onGenreUpdate }) => {
 
       setOeuvreGenres(updatedGenres);
       onGenreUpdate();
-      console.log(
-        isAttached
-          ? `Genre retiré : ${genreDocumentId}`
-          : `Genre attribué : ${genreDocumentId}`
-      );
     } catch (error) {
       console.error("Erreur lors de la mise à jour des genres :", error);
     }

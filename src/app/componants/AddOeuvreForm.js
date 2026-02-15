@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import axios from "axios";
 import Cookies from "js-cookie";
 import dynamic from "next/dynamic";
@@ -23,7 +24,6 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
   const [synopsis, setSynopsis] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
-  const apiToken = process.env.NEXT_PUBLIC_INDEX_API_TOKEN;
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -136,25 +136,31 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
         },
       };
 
-      const indexRes = await axios.post(
-        "https://novel-index-strapi.onrender.com/api/oeuvres",
-        indexPayload,
-        { headers: { Authorization: `Bearer ${apiToken}` } }
-      );
+      // Sync via server route (token gardé côté serveur)
+      const syncBody = { action: 'sync-oeuvre', payload: indexPayload };
 
+      // Si couverture, convertir en base64 pour envoi serveur
       if (couverture) {
-        const uploadDataIndex = new FormData();
-        uploadDataIndex.append("files", couverture, couverture.name);
-        uploadDataIndex.append("ref", "api::oeuvre.oeuvre");
-        uploadDataIndex.append("refId", indexRes.data.data.id);
-        uploadDataIndex.append("field", "couverture");
-
-        await axios.post(
-          "https://novel-index-strapi.onrender.com/api/upload",
-          uploadDataIndex,
-          { headers: { Authorization: `Bearer ${apiToken}` } }
-        );
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve) => {
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.readAsDataURL(couverture);
+        });
+        syncBody.couvertureData = {
+          base64,
+          mimeType: couverture.type,
+          fileName: couverture.name,
+        };
       }
+
+      await fetch('/api/novel-index', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify(syncBody),
+      });
 
       setMessage({ text: "Oeuvre ajoutee et synchronisee avec succes !", type: "success" });
       if (onOeuvreAdded) onOeuvreAdded();
@@ -243,7 +249,7 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
           <div>
             <label className="block text-sm font-semibold mb-1">Couverture</label>
             {couverturePreview && (
-              <img src={couverturePreview} alt="Preview" className="mb-3 max-h-32 object-cover rounded-lg" />
+              <Image src={couverturePreview} alt="Aperçu de la couverture" className="mb-3 max-h-32 object-cover rounded-lg" width={200} height={128} unoptimized />
             )}
             <input type="file" accept="image/*" onChange={handleFileChange}
               className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />

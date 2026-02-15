@@ -1,10 +1,8 @@
-"use client";
-
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { useEffect, useState } from "react";
-import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
+import NavBar from "./componants/NavBar";
+import Providers from "./componants/Providers";
+import Link from "next/link";
 
 // Polices personnalisées
 const geistSans = Geist({
@@ -17,214 +15,91 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// ─── Metadata par défaut du site ───
+export const metadata = {
+  metadataBase: new URL("https://trad-index.com"),
+  title: {
+    default: "Trad-Index — Plateforme d'indexation de traductions",
+    template: "%s | Trad-Index",
+  },
+  description:
+    "Trad-Index : plateforme collaborative d'indexation et de lecture de traductions de light novels, web novels et mangas.",
+  keywords: [
+    "traductions",
+    "light novel",
+    "web novel",
+    "manga",
+    "lecture en ligne",
+    "Trad-Index",
+    "novel index",
+    "traduction française",
+  ],
+  authors: [{ name: "Trad-Index" }],
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    siteName: "Trad-Index",
+    title: "Trad-Index — Plateforme d'indexation de traductions",
+    description:
+      "Plateforme collaborative d'indexation et de lecture de traductions de light novels, web novels et mangas.",
+    images: [
+      {
+        url: "/images/og-default.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Trad-Index — Plateforme d'indexation de traductions",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Trad-Index",
+    description:
+      "Plateforme collaborative d'indexation et de lecture de traductions.",
+    images: ["/images/og-default.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: "https://trad-index.com",
+  },
+};
+
 export default function RootLayout({ children }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // État de connexion
-  const [menuOpen, setMenuOpen] = useState(false); // État du menu responsive
-  const router = useRouter();
-
-  useEffect(() => {
-    // Vérifie si le JWT est présent dans les cookies
-    const jwt = Cookies.get("jwt");
-    setIsLoggedIn(!!jwt);
-  }, []);
-
-  const handleLogout = () => {
-    // Supprime le JWT des cookies
-    Cookies.remove("jwt");
-    setIsLoggedIn(false);
-    router.push("/connexion"); // Redirige vers la page de connexion
-  };
-
   return (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
-        {/* Balises meta de base */}
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="description" content="Trad-Index - Plateforme d'indexation collaborative des traductions." />
-        <meta name="keywords" content="traductions, index, œuvres, Trad-Index" />
-        <meta name="author" content="Trad-Index" />
-        <title>Trad-Index</title>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Trad-Index",
+              url: "https://trad-index.com",
+              description:
+                "Plateforme collaborative d'indexation et de lecture de traductions de light novels, web novels et mangas.",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://trad-index.com/oeuvres?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
       </head>
       <body className="bg-gray-900 text-white">
-        {/* Header - Navbar Moderne */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/50">
-          <nav className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex justify-between items-center h-16">
-              {/* Logo */}
-              <div 
-                className="flex items-center gap-3 cursor-pointer group"
-                onClick={() => router.push("/")}
-              >
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-shadow">
-                  <span className="text-white font-bold text-lg">T</span>
-                </div>
-                <span className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">
-                  Trad-Index
-                </span>
-              </div>
-
-              {/* Navigation Desktop */}
-              <div className="hidden md:flex items-center gap-1">
-                <a
-                  href="/"
-                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                >
-                  Accueil
-                </a>
-                <a
-                  href="/oeuvres"
-                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                >
-                  Catalogue
-                </a>
-                <a
-                  href="https://novel-index.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all flex items-center gap-1"
-                >
-                  Novel-Index
-                  <svg className="w-3.5 h-3.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              </div>
-
-              {/* Actions Desktop */}
-              <div className="hidden md:flex items-center gap-3">
-                {!isLoggedIn ? (
-                  <>
-                    <a
-                      href="/connexion"
-                      className="px-4 py-2 text-gray-300 hover:text-white font-medium transition-colors"
-                    >
-                      Connexion
-                    </a>
-                    <a
-                      href="/inscription"
-                      className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all"
-                    >
-                      S&apos;inscrire
-                    </a>
-                  </>
-                ) : (
-                  <>
-                    <a
-                      href="/profil"
-                      className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      Mon Profil
-                    </a>
-                    <button
-                      onClick={handleLogout}
-                      className="px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg font-medium transition-all"
-                    >
-                      Déconnexion
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Bouton Menu Mobile */}
-              <button
-                className="md:hidden relative w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
-                onClick={() => setMenuOpen(!menuOpen)}
-                aria-label="Menu"
-              >
-                <div className="w-5 h-4 flex flex-col justify-between">
-                  <span className={`block h-0.5 bg-white rounded-full transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-[7px]" : ""}`}></span>
-                  <span className={`block h-0.5 bg-white rounded-full transition-all duration-300 ${menuOpen ? "opacity-0 scale-0" : ""}`}></span>
-                  <span className={`block h-0.5 bg-white rounded-full transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-[7px]" : ""}`}></span>
-                </div>
-              </button>
-            </div>
-
-            {/* Menu Mobile */}
-            <div className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${menuOpen ? "max-h-96 pb-4" : "max-h-0"}`}>
-              <div className="pt-2 space-y-1">
-                <a
-                  href="/"
-                  className="block px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Accueil
-                </a>
-                <a
-                  href="/oeuvres"
-                  className="block px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Catalogue
-                </a>
-                <a
-                  href="https://novel-index.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                >
-                  Novel-Index
-                  <svg className="w-3.5 h-3.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-                
-                <div className="border-t border-gray-800 my-2"></div>
-                
-                {!isLoggedIn ? (
-                  <>
-                    <a
-                      href="/connexion"
-                      className="block px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      Connexion
-                    </a>
-                    <a
-                      href="/inscription"
-                      className="block mx-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-lg text-center"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      S&apos;inscrire
-                    </a>
-                  </>
-                ) : (
-                  <>
-                    <a
-                      href="/profil"
-                      className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-all"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      Mon Profil
-                    </a>
-                    <button
-                      onClick={() => { handleLogout(); setMenuOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg font-medium transition-all"
-                    >
-                      Déconnexion
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </nav>
-        </header>
+        <NavBar />
 
         {/* Spacer pour compenser le header fixe */}
         <div className="h-16"></div>
 
         {/* Main content */}
-        <main className="min-h-screen">{children}</main>
+        <Providers>
+          <main className="min-h-screen">{children}</main>
+        </Providers>
 
         {/* Footer Moderne */}
         <footer className="bg-gray-950 border-t border-gray-800/50">
@@ -286,19 +161,19 @@ export default function RootLayout({ children }) {
                 <h3 className="text-white font-semibold mb-4">Navigation</h3>
                 <ul className="space-y-3">
                   <li>
-                    <a href="/" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Accueil
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/oeuvres" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/oeuvres" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Catalogue
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/profil" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/profil" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Mon Profil
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -308,24 +183,24 @@ export default function RootLayout({ children }) {
                 <h3 className="text-white font-semibold mb-4">Catégories</h3>
                 <ul className="space-y-3">
                   <li>
-                    <a href="/oeuvres?category=Light Novel" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/oeuvres?category=Light Novel" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Light Novels
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/oeuvres?category=Web Novel" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/oeuvres?category=Web Novel" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Web Novels
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/oeuvres?category=Manga" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/oeuvres?category=Manga" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Mangas
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/oeuvres?category=Manhwa" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href="/oeuvres?category=Manhwa" className="text-gray-400 hover:text-white text-sm transition-colors">
                       Manhwa
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -356,19 +231,19 @@ export default function RootLayout({ children }) {
           <div className="border-t border-gray-800/50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-400 text-sm">
                   © {new Date().getFullYear()} Trad-Index. Tous droits réservés.
                 </p>
                 <div className="flex items-center gap-6">
-                  <a href="#" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
+                  <span className="text-gray-500 text-sm cursor-default">
                     Mentions légales
-                  </a>
-                  <a href="#" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
+                  </span>
+                  <span className="text-gray-500 text-sm cursor-default">
                     Confidentialité
-                  </a>
-                  <a href="#" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
+                  </span>
+                  <span className="text-gray-500 text-sm cursor-default">
                     Contact
-                  </a>
+                  </span>
                 </div>
               </div>
             </div>

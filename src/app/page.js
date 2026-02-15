@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import FicheOeuvre from "./componants/FicheOeuvre";
 
 export default function Home() {
@@ -11,6 +13,8 @@ export default function Home() {
   const [popularOeuvres, setPopularOeuvres] = useState([]);
   const [selectedOeuvre, setSelectedOeuvre] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [stats, setStats] = useState({ oeuvres: 0, chapitres: 0, traducteurs: 0 });
+  const searchTimerRef = useRef(null);
   const router = useRouter();
 
   // Catégories disponibles
@@ -35,28 +39,65 @@ export default function Home() {
       }
     };
 
+    const fetchStats = async () => {
+      try {
+        const [oeuvresRes, chapitresRes, traducteursRes] = await Promise.all([
+          fetch(`/api/proxy/oeuvres?pagination[limit]=1&pagination[withCount]=true`),
+          fetch(`/api/proxy/chapitres?pagination[limit]=1&pagination[withCount]=true`),
+          fetch(`/api/proxy/users?filters[redacteur][$eq]=true&pagination[limit]=1&pagination[withCount]=true`),
+        ]);
+        const [oeuvresData, chapitresData, traducteursData] = await Promise.all([
+          oeuvresRes.json(),
+          chapitresRes.json(),
+          traducteursRes.json(),
+        ]);
+        setStats({
+          oeuvres: oeuvresData?.meta?.pagination?.total || 0,
+          chapitres: chapitresData?.meta?.pagination?.total || 0,
+          traducteurs: traducteursData?.meta?.pagination?.total || traducteursData?.length || 0,
+        });
+      } catch (error) {
+        console.error("Erreur lors de la récupération des stats :", error);
+      }
+    };
+
     fetchPopularOeuvres();
+    fetchStats();
   }, []);
 
-  const handleSearch = async () => {
-    if (!searchText.trim()) return;
-    setIsSearching(true);
-    try {
-      const url = `/api/proxy/oeuvres?filters[titre][$containsi]=${searchText}&populate=*`;
-      const res = await fetch(url);
-      const data = await res.json();
-      setSearchResults(data.data);
-    } catch (error) {
-      console.error("Erreur lors de la recherche :", error);
-    } finally {
+  // Debounced live search
+  const debouncedSearch = useCallback((text) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!text.trim()) {
+      setSearchResults([]);
       setIsSearching(false);
+      return;
     }
-  };
+    setIsSearching(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const url = `/api/proxy/oeuvres?filters[titre][$containsi]=${encodeURIComponent(text)}&populate=couverture&pagination[limit]=10`;
+        const res = await fetch(url);
+        const data = await res.json();
+        setSearchResults(data.data || []);
+      } catch (error) {
+        console.error("Erreur lors de la recherche :", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      debouncedSearch(searchText);
+    }
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchText, isSearchOpen, debouncedSearch]);
 
   const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
     if (e.key === "Escape") {
       setIsSearchOpen(false);
     }
@@ -79,13 +120,16 @@ export default function Home() {
   return (
     <div className="relative bg-gray-950">
       {/* Hero Header - Redesigned */}
-      <div
-        className="relative min-h-screen w-full bg-cover bg-center"
-        style={{
-          backgroundImage: `url('/images/HeroHeader.webp')`,
-          backgroundAttachment: "fixed",
-        }}
-      >
+      <div className="relative min-h-screen w-full">
+        {/* Image de fond optimisée */}
+        <Image
+          src="/images/HeroHeader.webp"
+          alt="Trad-Index — Plateforme de traductions françaises de light novels, web novels et mangas"
+          fill
+          priority
+          className="object-cover object-center"
+          sizes="100vw"
+        />
         {/* Overlay avec gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-gray-950"></div>
 
@@ -130,6 +174,7 @@ export default function Home() {
                 placeholder="Rechercher une œuvre, un auteur..."
                 className="w-full px-4 py-4 bg-transparent text-white placeholder-gray-400 focus:outline-none cursor-pointer"
                 readOnly
+                aria-label="Rechercher une œuvre"
               />
               <div className="pr-4">
                 <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs text-gray-400 bg-white/10 rounded-lg border border-white/20">
@@ -141,32 +186,32 @@ export default function Home() {
 
           {/* Boutons CTA */}
           <div className="flex flex-col sm:flex-row gap-4 mt-10">
-            <button
-              onClick={() => router.push("/oeuvres")}
+            <Link
+              href="/oeuvres"
               className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-300 hover:scale-105"
             >
               Explorer le catalogue
-            </button>
-            <button
-              onClick={() => router.push("/inscription")}
+            </Link>
+            <Link
+              href="/inscription"
               className="px-8 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl font-semibold text-white hover:bg-white/20 transition-all duration-300"
             >
               Rejoindre la communauté
-            </button>
+            </Link>
           </div>
 
           {/* Stats rapides */}
           <div className="flex flex-wrap justify-center gap-8 mt-16 pt-8 border-t border-white/10">
             <div className="text-center">
-              <p className="text-3xl font-bold text-white">1000+</p>
+              <p className="text-3xl font-bold text-white">{stats.oeuvres.toLocaleString("fr-FR")}</p>
               <p className="text-sm text-gray-400">Œuvres indexées</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-white">50K+</p>
+              <p className="text-3xl font-bold text-white">{stats.chapitres.toLocaleString("fr-FR")}</p>
               <p className="text-sm text-gray-400">Chapitres traduits</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-white">100+</p>
+              <p className="text-3xl font-bold text-white">{stats.traducteurs.toLocaleString("fr-FR")}</p>
               <p className="text-sm text-gray-400">Traducteurs actifs</p>
             </div>
           </div>
@@ -228,9 +273,9 @@ export default function Home() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map((cat) => (
-              <button
+              <Link
                 key={cat.name}
-                onClick={() => router.push(`/oeuvres?category=${encodeURIComponent(cat.name)}`)}
+                href={`/oeuvres?category=${encodeURIComponent(cat.name)}`}
                 className={`group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br ${cat.color} transition-all duration-300 hover:scale-105 hover:shadow-lg`}
               >
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
@@ -238,7 +283,7 @@ export default function Home() {
                   <span className="text-3xl mb-2 block">{cat.icon}</span>
                   <span className="text-white font-semibold text-sm">{cat.name}</span>
                 </div>
-              </button>
+              </Link>
             ))}
           </div>
         </div>
@@ -256,30 +301,33 @@ export default function Home() {
                   <p className="text-gray-400 text-sm mt-1">Les dernières œuvres sur la plateforme</p>
                 </div>
               </div>
-              <button
-                onClick={() => router.push("/oeuvres")}
+              <Link
+                href="/oeuvres"
                 className="text-indigo-400 hover:text-indigo-300 font-medium text-sm flex items-center gap-1 transition-colors"
               >
                 Voir tout
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
               {popularOeuvres.slice(0, 8).map((oeuvre) => (
-                <div
+                <Link
                   key={oeuvre.id}
+                  href={`/oeuvre/${oeuvre.documentId}`}
                   className="group cursor-pointer"
-                  onClick={() => handleOeuvreClick(oeuvre)}
+                  onClick={(e) => { e.preventDefault(); handleOeuvreClick(oeuvre); }}
                 >
                   <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800">
                     {oeuvre.couverture?.[0]?.url ? (
-                      <img
+                      <Image
                         src={oeuvre.couverture[0].url}
-                        alt={oeuvre.titre}
+                        alt={oeuvre.titre || "Couverture"}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        fill
+                        sizes="(max-width: 768px) 50vw, 25vw"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
@@ -296,9 +344,9 @@ export default function Home() {
                     {oeuvre.titre}
                   </h3>
                   {oeuvre.type && (
-                    <p className="text-gray-500 text-xs mt-1">{oeuvre.type}</p>
+                    <p className="text-gray-400 text-xs mt-1">{oeuvre.type}</p>
                   )}
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -315,18 +363,18 @@ export default function Home() {
             Rejoignez notre communauté de passionnés. Partagez vos traductions, découvrez de nouvelles œuvres et connectez-vous avec d'autres fans.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => router.push("/inscription")}
+            <Link
+              href="/inscription"
               className="px-8 py-4 bg-white text-indigo-900 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
             >
               Créer un compte gratuit
-            </button>
-            <button
-              onClick={() => router.push("/oeuvres")}
+            </Link>
+            <Link
+              href="/oeuvres"
               className="px-8 py-4 bg-white/10 border border-white/30 text-white rounded-xl font-semibold hover:bg-white/20 transition-all duration-300"
             >
               Parcourir les œuvres
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -346,6 +394,7 @@ export default function Home() {
           <button
             onClick={closeSearch}
             className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            aria-label="Fermer la recherche"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -382,8 +431,8 @@ export default function Home() {
             </div>
 
             {/* Hint */}
-            <p className="text-gray-500 text-sm text-center mb-6">
-              Appuyez sur <kbd className="px-2 py-1 bg-white/10 rounded text-gray-400">Entrée</kbd> pour rechercher ou <kbd className="px-2 py-1 bg-white/10 rounded text-gray-400">Échap</kbd> pour fermer
+            <p className="text-gray-400 text-sm text-center mb-6">
+              Tapez pour rechercher • <kbd className="px-2 py-1 bg-white/10 rounded text-gray-400">Échap</kbd> pour fermer
             </p>
 
             {/* Résultats */}
@@ -405,10 +454,12 @@ export default function Home() {
                       }}
                     >
                       {oeuvre.couverture?.[0]?.url ? (
-                        <img
+                        <Image
                           src={oeuvre.couverture[0].url}
-                          alt={oeuvre.titre}
+                          alt={oeuvre.titre || "Couverture"}
                           className="w-16 h-20 object-cover rounded-lg"
+                          width={64}
+                          height={80}
                         />
                       ) : (
                         <div className="w-16 h-20 bg-gray-800 rounded-lg flex items-center justify-center">
@@ -421,7 +472,7 @@ export default function Home() {
                           {oeuvre.auteur || "Auteur inconnu"} • {oeuvre.type || "Type inconnu"}
                         </p>
                       </div>
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
@@ -431,7 +482,7 @@ export default function Home() {
                 <div className="text-center py-12 bg-white/5 rounded-2xl">
                   <div className="text-4xl mb-4">🔍</div>
                   <p className="text-gray-400">Aucun résultat pour "{searchText}"</p>
-                  <p className="text-gray-500 text-sm mt-2">Essayez avec d'autres mots-clés</p>
+                  <p className="text-gray-400 text-sm mt-2">Essayez avec d'autres mots-clés</p>
                 </div>
               ) : null}
             </div>

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import TeamAnnonces from "./TeamAnnonces";
 
 export default function FicheOeuvre({ oeuvre, onClose }) {
   const [chapitres, setChapitres] = useState(null);
@@ -11,11 +13,13 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
   const [tags, setTags] = useState([]);
   const [genres, setGenres] = useState([]);
   const [users, setUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingChapitres, setIsLoadingChapitres] = useState(true);
   const [activeTab, setActiveTab] = useState("synopsis");
+  const [currentPage, setCurrentPage] = useState(1);
   const [sortOrder, setSortOrder] = useState("desc");
   const [showAllSynopsis, setShowAllSynopsis] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [shareTooltip, setShareTooltip] = useState(false);
   const [selectedTome, setSelectedTome] = useState("all");
   
@@ -31,6 +35,15 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
   const allSortedChapitres = useMemo(() => {
     return (chapitres || []).slice().sort((a, b) => a.order - b.order);
   }, [chapitres]);
+
+  const CHAPTERS_PER_PAGE = 50;
+
+  const paginatedChapitres = useMemo(() => {
+    const start = (currentPage - 1) * CHAPTERS_PER_PAGE;
+    return sortedChapitres.slice(start, start + CHAPTERS_PER_PAGE);
+  }, [sortedChapitres, currentPage]);
+
+  const totalPages = Math.ceil(sortedChapitres.length / CHAPTERS_PER_PAGE) || 1;
 
   const firstChapter = allSortedChapitres[0];
   const lastChapter = allSortedChapitres[allSortedChapitres.length - 1];
@@ -72,32 +85,79 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
     } catch {}
   };
 
+  // Tracking — enregistrer un événement
+  const trackEvent = (type) => {
+    if (!oeuvre?.documentId) return;
+    fetch("/api/tracking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type,
+        cibleType: "oeuvre",
+        cibleId: oeuvre.documentId,
+        oeuvreId: oeuvre.documentId,
+      }),
+    }).catch(() => {});
+  };
+
+  // Tracking — vue de la fiche œuvre (timer 5s)
   useEffect(() => {
-    async function fetchChapitres() {
-      setIsLoading(true);
+    if (!oeuvre?.documentId) return;
+    const timer = setTimeout(() => trackEvent("vue"), 5000);
+    return () => clearTimeout(timer);
+  }, [oeuvre?.documentId]);
+
+  // Fetch métadonnées de l'oeuvre (tags, genres, users) — rapide, sans chapitres
+  useEffect(() => {
+    async function fetchMeta() {
       try {
         const response = await fetch(
-          `/api/proxy/oeuvres/${oeuvre.documentId}?populate=tags&populate=genres&populate=users&populate=chapitres`
+          `/api/proxy/oeuvres/${oeuvre.documentId}?populate=tags&populate=genres&populate=users`
         );
         const data = await response.json();
-
         if (data.data) {
-          setChapitres(data.data.chapitres || []);
-          setFilteredChapitres(data.data.chapitres || []);
           setTags(data.data.tags || []);
           setGenres(data.data.genres || []);
           setUsers(data.data.users || []);
         }
       } catch (error) {
-        console.error("Erreur lors de la récupération des chapitres :", error);
-      } finally {
-        setIsLoading(false);
+        console.error("Erreur lors de la récupération des métadonnées :", error);
       }
     }
+    if (oeuvre?.documentId) fetchMeta();
+  }, [oeuvre]);
 
-    if (oeuvre?.documentId) {
-      fetchChapitres();
+  // Fetch chapitres de manière progressive (batch par batch)
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchChapitresProgressively() {
+      setIsLoadingChapitres(true);
+      try {
+        let page = 1;
+        let pageCount = 1;
+        let accumulated = [];
+        do {
+          const res = await fetch(
+            `/api/proxy/chapitres?filters[oeuvres][documentId][$eq]=${oeuvre.documentId}&fields[0]=titre&fields[1]=order&fields[2]=tome&fields[3]=pdf&fields[4]=publishedAt&fields[5]=documentId&sort=order:asc&pagination[page]=${page}&pagination[pageSize]=100`
+          );
+          const data = await res.json();
+          if (cancelled) return;
+          const batch = data.data || [];
+          accumulated = [...accumulated, ...batch];
+          // Mettre à jour l'état après chaque batch pour affichage progressif
+          setChapitres([...accumulated]);
+          setFilteredChapitres([...accumulated]);
+          pageCount = data.meta?.pagination?.pageCount || 1;
+          page++;
+        } while (page <= pageCount);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des chapitres :", error);
+      } finally {
+        if (!cancelled) setIsLoadingChapitres(false);
+      }
     }
+    if (oeuvre?.documentId) fetchChapitresProgressively();
+    return () => { cancelled = true; };
   }, [oeuvre]);
 
   // Filtrage des chapitres
@@ -130,6 +190,11 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
     }
   }, [filter, chapitres, searchTerm, selectedTome]);
 
+  // Réinitialiser la page lors du changement de filtres
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchTerm, selectedTome, sortOrder]);
+
   // Extraction du synopsis
   const getSynopsis = () => {
     if (Array.isArray(oeuvre?.synopsis) && oeuvre.synopsis.length > 0) {
@@ -148,80 +213,97 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
       className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex justify-center items-start p-0 sm:p-4 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 text-white w-full max-w-6xl min-h-screen sm:min-h-0 sm:max-h-[95vh] sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-fadeIn">
+      <div className="relative bg-gray-950 text-white w-full max-w-6xl min-h-screen sm:min-h-0 sm:max-h-[95vh] sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-fadeIn">
         
-        {/* Header avec image de fond */}
-        <div className="relative h-56 sm:h-72 flex-shrink-0">
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-700"
-            style={{
-              backgroundImage: coverUrl 
-                ? `url('${coverUrl}')` 
-                : `url('/images/HeroHeader.webp')`,
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-gray-900" />
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/20 to-purple-900/20" />
-          
-          {/* Actions header */}
-          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-            {/* Partager */}
-            <div className="relative">
-              <button
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-indigo-600 text-white transition-all duration-300"
-                onClick={handleShare}
-                title="Partager"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-              </button>
-              {shareTooltip && (
-                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs rounded-lg whitespace-nowrap animate-fadeIn">
-                  Lien copié !
-                </div>
-              )}
-            </div>
-            
-            {/* Favori */}
-            <button
-              className={`w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300 ${
-                isFavorite ? "bg-red-600 text-white" : "bg-black/40 hover:bg-red-600 text-white"
-              }`}
-              onClick={() => setIsFavorite(!isFavorite)}
-              title={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-            >
-              <svg className={`w-5 h-5 transition-transform duration-300 ${isFavorite ? "scale-110" : ""}`} fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </button>
+        {/* Image de fond ABSOLUE derrière tout le contenu */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: coverUrl 
+              ? `url('${coverUrl}')` 
+              : `url('/images/HeroHeader.webp')`,
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-gray-900/90 to-gray-950" />
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/10 to-purple-900/10" />
 
-            {/* Fermer */}
+        {/* Actions header (partager, favori, fermer) */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
+          {/* Partager */}
+          <div className="relative">
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-red-600 text-white transition-all duration-300"
-              onClick={onClose}
-              title="Fermer"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-indigo-600 text-white transition-all duration-300"
+              onClick={handleShare}
+              title="Partager"
+              aria-label="Partager"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
             </button>
+            {shareTooltip && (
+              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs rounded-lg whitespace-nowrap animate-fadeIn">
+                Lien copié !
+              </div>
+            )}
           </div>
+          
+          {/* Favori / Like */}
+          <button
+            className={`w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300 ${
+              isFavorite ? "bg-red-600 text-white" : "bg-black/40 hover:bg-red-600 text-white"
+            }`}
+            onClick={() => { setIsFavorite(!isFavorite); if (!isFavorite) trackEvent("like"); }}
+            title={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+          >
+            <svg className={`w-5 h-5 transition-transform duration-300 ${isFavorite ? "scale-110" : ""}`} fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+
+          {/* S'abonner */}
+          <button
+            className={`w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300 ${
+              isSubscribed ? "bg-indigo-600 text-white" : "bg-black/40 hover:bg-indigo-600 text-white"
+            }`}
+            onClick={() => { setIsSubscribed(!isSubscribed); if (!isSubscribed) trackEvent("abonne"); }}
+            title={isSubscribed ? "Se désabonner" : "S'abonner"}
+            aria-label={isSubscribed ? "Se désabonner" : "S'abonner"}
+          >
+            <svg className={`w-5 h-5 transition-transform duration-300 ${isSubscribed ? "scale-110" : ""}`} fill={isSubscribed ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </button>
+
+          {/* Fermer */}
+          <button
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-red-600 text-white transition-all duration-300"
+            onClick={onClose}
+            title="Fermer"
+            aria-label="Fermer"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        {/* Contenu principal */}
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Contenu principal — au-dessus du background */}
+        <div className="flex-1 overflow-y-auto no-scrollbar relative z-10 pt-16">
           {/* Section info avec couverture */}
-          <div className="px-4 sm:px-8 pb-6 -mt-28 relative z-10">
+          <div className="px-4 sm:px-8 pb-6">
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Couverture */}
               <div className="flex-shrink-0 mx-auto lg:mx-0">
                 <div className="relative group">
                   {coverUrl ? (
-                    <img
+                    <Image
                       src={coverUrl}
                       alt={oeuvre?.titre || "Couverture"}
                       className="w-36 h-52 sm:w-44 sm:h-64 object-cover rounded-xl shadow-2xl border-4 border-gray-800 transition-transform duration-300 group-hover:scale-105"
+                      width={176}
+                      height={256}
                     />
                   ) : (
                     <div className="w-36 h-52 sm:w-44 sm:h-64 rounded-xl bg-gradient-to-br from-indigo-800 to-purple-900 flex items-center justify-center border-4 border-gray-800 shadow-2xl">
@@ -256,12 +338,12 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                   )}
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 leading-tight">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 leading-tight">
                   {oeuvre?.titre || "Titre non disponible"}
-                </h1>
+                </h2>
                 
                 {oeuvre?.titrealt && (
-                  <p className="text-gray-500 text-sm mb-3 italic">
+                  <p className="text-gray-400 text-sm mb-3 italic">
                     {oeuvre.titrealt}
                   </p>
                 )}
@@ -299,7 +381,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                     </svg>
                     <div>
                       <div className="text-lg font-bold text-white">{stats.total}</div>
-                      <div className="text-xs text-gray-500">chapitres</div>
+                      <div className="text-xs text-gray-400">chapitres</div>
                     </div>
                   </div>
                   {tomes.length > 1 && (
@@ -309,7 +391,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                       </svg>
                       <div>
                         <div className="text-lg font-bold text-white">{tomes.length}</div>
-                        <div className="text-xs text-gray-500">tomes</div>
+                        <div className="text-xs text-gray-400">tomes</div>
                       </div>
                     </div>
                   )}
@@ -319,7 +401,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                     </svg>
                     <div>
                       <div className="text-lg font-bold text-white">{formatReadingTime(stats.readingTime)}</div>
-                      <div className="text-xs text-gray-500">lecture estimée</div>
+                      <div className="text-xs text-gray-400">lecture estimée</div>
                     </div>
                   </div>
                 </div>
@@ -328,7 +410,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                 <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
                   <button
                     className="group px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40 flex items-center gap-2"
-                    onClick={() => firstChapter && router.push(`/chapitre/${firstChapter.documentId}`)}
+                    onClick={() => firstChapter && router.push(`/oeuvre/${oeuvre.documentId}/chapitre/${firstChapter.order}`)}
                     disabled={!firstChapter}
                   >
                     <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,7 +421,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                   </button>
                   <button
                     className="group px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-gray-600 flex items-center gap-2"
-                    onClick={() => lastChapter && router.push(`/chapitre/${lastChapter.documentId}`)}
+                    onClick={() => lastChapter && router.push(`/oeuvre/${oeuvre.documentId}/chapitre/${lastChapter.order}`)}
                     disabled={!lastChapter}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,7 +457,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                 className={`px-5 py-3 font-medium text-sm transition-all duration-300 relative ${
                   activeTab === "synopsis" 
                     ? "text-indigo-400" 
-                    : "text-gray-500 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-300"
                 }`}
                 onClick={() => setActiveTab("synopsis")}
               >
@@ -388,7 +470,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                 className={`px-5 py-3 font-medium text-sm transition-all duration-300 relative flex items-center gap-2 ${
                   activeTab === "chapitres" 
                     ? "text-indigo-400" 
-                    : "text-gray-500 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-300"
                 }`}
                 onClick={() => setActiveTab("chapitres")}
               >
@@ -406,12 +488,28 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                 className={`px-5 py-3 font-medium text-sm transition-all duration-300 relative ${
                   activeTab === "infos" 
                     ? "text-indigo-400" 
-                    : "text-gray-500 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-300"
                 }`}
                 onClick={() => setActiveTab("infos")}
               >
                 Informations
                 {activeTab === "infos" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
+                )}
+              </button>
+              <button
+                className={`px-5 py-3 font-medium text-sm transition-all duration-300 relative flex items-center gap-2 ${
+                  activeTab === "annonces" 
+                    ? "text-indigo-400" 
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+                onClick={() => setActiveTab("annonces")}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                </svg>
+                Annonces
+                {activeTab === "annonces" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
                 )}
               </button>
@@ -463,7 +561,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                 <div className="flex flex-col sm:flex-row gap-3 mb-5">
                   {/* Recherche */}
                   <div className="relative flex-1">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
@@ -527,13 +625,13 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
 
                 {/* Indicateur de résultats */}
                 {searchTerm && (
-                  <p className="text-sm text-gray-500 mb-3">
+                  <p className="text-sm text-gray-400 mb-3">
                     {filteredChapitres.length} résultat{filteredChapitres.length !== 1 ? "s" : ""} pour "{searchTerm}"
                   </p>
                 )}
 
                 {/* Liste des chapitres */}
-                {isLoading ? (
+                {isLoadingChapitres ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[...Array(6)].map((_, i) => (
                       <div key={i} className="animate-pulse bg-gray-800/50 rounded-xl p-4">
@@ -543,8 +641,9 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                     ))}
                   </div>
                 ) : sortedChapitres.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
-                    {sortedChapitres.map((chapitre, index) => (
+                  <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {paginatedChapitres.map((chapitre, index) => (
                       <div
                         key={chapitre.documentId || index}
                         className="group flex items-center gap-3 p-4 bg-gray-800/50 hover:bg-gray-800 rounded-xl cursor-pointer transition-all duration-300 border border-transparent hover:border-gray-700"
@@ -552,7 +651,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                           if (chapitre.pdf) {
                             window.open(chapitre.pdf, "_blank");
                           } else {
-                            router.push(`/chapitre/${chapitre.documentId}`);
+                            router.push(`/oeuvre/${oeuvre.documentId}/chapitre/${chapitre.order}`);
                           }
                         }}
                       >
@@ -568,7 +667,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                           <h3 className="font-medium text-white truncate group-hover:text-indigo-300 transition-colors">
                             {chapitre.titre || "Chapitre sans titre"}
                           </h3>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                             {chapitre.tome && (
                               <span className="text-purple-400">Tome {chapitre.tome}</span>
                             )}
@@ -594,6 +693,35 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                       </div>
                     ))}
                   </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-800">
+                      <p className="text-sm text-gray-400">
+                        {sortedChapitres.length} chapitre{sortedChapitres.length !== 1 ? "s" : ""} — page {currentPage}/{totalPages}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="px-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          ← Précédent
+                        </button>
+                        <span className="text-sm text-gray-400 tabular-nums min-w-[80px] text-center">
+                          {(currentPage - 1) * CHAPTERS_PER_PAGE + 1}–{Math.min(currentPage * CHAPTERS_PER_PAGE, sortedChapitres.length)}
+                        </span>
+                        <button
+                          className="px-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Suivant →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
@@ -601,7 +729,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                       </svg>
                     </div>
-                    <p className="text-gray-500 font-medium">Aucun chapitre trouvé</p>
+                    <p className="text-gray-400 font-medium">Aucun chapitre trouvé</p>
                     {searchTerm && (
                       <button
                         className="mt-3 text-indigo-400 hover:text-indigo-300 text-sm"
@@ -617,6 +745,11 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Onglet Annonces */}
+            {activeTab === "annonces" && (
+              <TeamAnnonces oeuvreId={oeuvre?.documentId} />
             )}
 
             {/* Onglet Informations */}
@@ -677,19 +810,19 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="text-center p-3 bg-gray-900/50 rounded-lg">
                       <div className="text-2xl font-bold text-indigo-400">{stats.total}</div>
-                      <div className="text-xs text-gray-500">Chapitres total</div>
+                      <div className="text-xs text-gray-400">Chapitres total</div>
                     </div>
                     <div className="text-center p-3 bg-gray-900/50 rounded-lg">
                       <div className="text-2xl font-bold text-green-400">{stats.pdf}</div>
-                      <div className="text-xs text-gray-500">PDF disponibles</div>
+                      <div className="text-xs text-gray-400">PDF disponibles</div>
                     </div>
                     <div className="text-center p-3 bg-gray-900/50 rounded-lg">
                       <div className="text-2xl font-bold text-blue-400">{stats.online}</div>
-                      <div className="text-xs text-gray-500">Chapitres en ligne</div>
+                      <div className="text-xs text-gray-400">Chapitres en ligne</div>
                     </div>
                     <div className="text-center p-3 bg-gray-900/50 rounded-lg">
                       <div className="text-2xl font-bold text-amber-400">{tomes.length || 1}</div>
-                      <div className="text-xs text-gray-500">Tome{tomes.length > 1 ? "s" : ""}</div>
+                      <div className="text-xs text-gray-400">Tome{tomes.length > 1 ? "s" : ""}</div>
                     </div>
                   </div>
                 </div>
@@ -732,7 +865,7 @@ function InfoCard({ icon, label, value, color }) {
         {icon}
       </div>
       <div>
-        <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+        <p className="text-xs text-gray-400 uppercase tracking-wide">{label}</p>
         <p className="text-white font-medium">{value}</p>
       </div>
     </div>

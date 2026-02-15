@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
-
-const TEAMS_API = "http://localhost:1337/api";
 
 export default function TeamInvite({ team, onClose, onSuccess }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,6 +12,15 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Fermer avec Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleSearch = async () => {
     if (searchQuery.length < 2) return;
@@ -68,7 +75,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
     try {
       // Vérifier si une invitation existe déjà
       const existingRes = await fetch(
-        `${TEAMS_API}/team-invitations?filters[team][documentId][$eq]=${team.documentId}&filters[user][id][$eq]=${selectedUser.id}&filters[status][$eq]=pending`,
+        `/api/proxy/team-invitations?filters[team][documentId][$eq]=${team.documentId}&filters[user][id][$eq]=${selectedUser.id}&filters[status][$eq]=pending`,
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
       const existingData = await existingRes.json();
@@ -80,7 +87,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
       }
 
       // Créer l'invitation
-      const res = await fetch(`${TEAMS_API}/team-invitations`, {
+      const res = await fetch(`/api/proxy/team-invitations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -119,7 +126,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -127,6 +134,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
           <button
             onClick={onClose}
             className="p-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+            aria-label="Fermer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -198,7 +206,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-white font-medium truncate">{user.username}</p>
-                  <p className="text-gray-500 text-sm truncate">{user.email}</p>
+                  <p className="text-gray-400 text-sm truncate">{user.email}</p>
                 </div>
               </button>
             ))}
@@ -206,7 +214,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
         )}
 
         {searchResults.length === 0 && searchQuery.length >= 2 && !isSearching && (
-          <p className="text-gray-500 text-sm text-center mb-4">Aucun utilisateur trouvé</p>
+          <p className="text-gray-400 text-sm text-center mb-4">Aucun utilisateur trouvé</p>
         )}
 
         {/* Selected User */}
@@ -219,7 +227,7 @@ export default function TeamInvite({ team, onClose, onSuccess }) {
                 </div>
                 <div>
                   <p className="text-white font-medium">{selectedUser.username}</p>
-                  <p className="text-gray-500 text-sm">{selectedUser.email}</p>
+                  <p className="text-gray-400 text-sm">{selectedUser.email}</p>
                 </div>
               </div>
               <button

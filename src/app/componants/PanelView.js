@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import Cookies from "js-cookie";
+import { strapiBlocksToHtml, htmlToStrapiBlocks, countWords } from "./strapiBlocksUtils";
 
 const RichEditor = dynamic(() => import("./RichEditor"), { ssr: false });
 
@@ -12,6 +14,8 @@ export default function PanelView({
   couvertureUrl,
   chapitres,
   onBack,
+  addedBy,
+  embedded,
   message,
   isReordering,
   setIsReordering,
@@ -44,9 +48,11 @@ export default function PanelView({
   // Filtres et recherche
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const CHAPITRES_PER_PAGE = 30;
 
   // Chapitres filtrés et triés
-  const filteredChapitres = useMemo(() => {
+  const allFilteredChapitres = useMemo(() => {
     let result = [...orderedChapitres];
     
     if (searchTerm.trim()) {
@@ -63,6 +69,18 @@ export default function PanelView({
     );
   }, [orderedChapitres, searchTerm, sortOrder]);
 
+  // Pagination
+  const totalPages = Math.ceil(allFilteredChapitres.length / CHAPITRES_PER_PAGE);
+  const filteredChapitres = useMemo(() => {
+    const start = (currentPage - 1) * CHAPITRES_PER_PAGE;
+    return allFilteredChapitres.slice(start, start + CHAPITRES_PER_PAGE);
+  }, [allFilteredChapitres, currentPage]);
+
+  // Reset page when search/sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortOrder]);
+
   // Stats
   const stats = useMemo(() => {
     const total = chapitres?.length || 0;
@@ -77,21 +95,39 @@ export default function PanelView({
     const jwt = Cookies.get("jwt");
 
     try {
-      const res = await fetch(`/api/proxy/chapitres/${chapitre.documentId}`, {
-        headers: { Authorization: `Bearer ${jwt}` },
-      });
-      const data = await res.json();
-      const chap = data.data;
+      // D'abord charger les métadonnées (léger)
+      setEditingChapitre(chapitre);
+      setEditTitre(chapitre.titre || "");
+      setEditOrder(chapitre.order || "");
+      setEditTome(chapitre.tome || "");
+      setEditTexte("<p>Chargement du contenu...</p>");
 
-      setEditingChapitre(chap);
-      setEditTitre(chap.titre || "");
-      setEditOrder(chap.order || "");
-      setEditTome(chap.tome || "");
+      // Puis charger le texte séparément (peut être lourd)
+      const headerOpts = jwt ? { headers: { Authorization: `Bearer ${jwt}` } } : {};
+      let res = await fetch(`/api/proxy/chapitres/${chapitre.documentId}?fields[0]=texte&fields[1]=titre&fields[2]=order&fields[3]=tome`, headerOpts);
+      
+      // Fallback sans auth si erreur
+      if (!res.ok) {
+        res = await fetch(`/api/proxy/chapitres/${chapitre.documentId}?fields[0]=texte&fields[1]=titre&fields[2]=order&fields[3]=tome`);
+      }
 
-      const texteHTML = chap.texte
-        ? chap.texte.map((t) => `<p>${t.children?.[0]?.text || ""}</p>`).join("")
-        : "";
-      setEditTexte(texteHTML);
+      if (res.ok) {
+        const data = await res.json();
+        const chap = data.data;
+        if (chap) {
+          setEditingChapitre(chap);
+          setEditTitre(chap.titre || chapitre.titre || "");
+          setEditOrder(chap.order || chapitre.order || "");
+          setEditTome(chap.tome || chapitre.tome || "");
+          const texteHTML = chap.texte
+            ? strapiBlocksToHtml(chap.texte)
+            : "";
+          setEditTexte(texteHTML);
+        }
+      } else {
+        console.error("Erreur chargement chapitre HTTP:", res.status);
+        setEditTexte("<p>Erreur lors du chargement du contenu</p>");
+      }
     } catch (err) {
       console.error("Erreur chargement chapitre :", err);
       alert("Erreur lors du chargement du chapitre.");
@@ -106,13 +142,7 @@ export default function PanelView({
 
     const jwt = Cookies.get("jwt");
 
-    const formattedTexte = editTexte
-      .split(/<p>|<\/p>/)
-      .filter((line) => line.trim() !== "")
-      .map((line) => ({
-        type: "paragraph",
-        children: [{ type: "text", text: line.replace(/<br>/g, "\n").trim() }],
-      }));
+    const formattedTexte = htmlToStrapiBlocks(editTexte);
 
     if (formattedTexte.length === 0) {
       formattedTexte.push({
@@ -212,7 +242,7 @@ export default function PanelView({
             </div>
             <div>
               <h1 className="text-2xl font-bold">Modifier le chapitre</h1>
-              <p className="text-gray-500 text-sm">Chapitre #{editingChapitre.order || "?"}</p>
+              <p className="text-gray-400 text-sm">Chapitre #{editingChapitre.order || "?"}</p>
             </div>
           </div>
 
@@ -251,6 +281,65 @@ export default function PanelView({
 
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Contenu du chapitre</label>
+
+            {/* Guide du système de classification intelligent */}
+            <div className="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-950/30 overflow-hidden">
+              <details className="group">
+                <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-indigo-900/20 transition-colors">
+                  <div className="p-1.5 bg-indigo-600/20 rounded-lg">
+                    <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-semibold text-indigo-300">Mise en forme intelligente du texte</span>
+                  <svg className="w-4 h-4 text-indigo-400 ml-auto transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="px-4 pb-4 text-sm space-y-3 border-t border-indigo-500/20 pt-3">
+                  <p className="text-gray-400">Le lecteur applique automatiquement un style visuel selon le type de ligne détecté. Écrivez naturellement, le système reconnaît :</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-800/50">
+                      <span className="w-2 h-2 mt-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                      <div>
+                        <span className="font-medium text-blue-300">Dialogue</span>
+                        <p className="text-xs text-gray-400 mt-0.5">Commence par des guillemets «&nbsp;»&nbsp;"&nbsp;"</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-800/50">
+                      <span className="w-2 h-2 mt-1.5 rounded-full bg-purple-400 flex-shrink-0"></span>
+                      <div>
+                        <span className="font-medium text-purple-300">Pensées</span>
+                        <p className="text-xs text-gray-400 mt-0.5">Entre apostrophes &apos;...&apos; ou questions courtes</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-800/50">
+                      <span className="w-2 h-2 mt-1.5 rounded-full bg-amber-400 flex-shrink-0"></span>
+                      <div>
+                        <span className="font-medium text-amber-300">Effets sonores</span>
+                        <p className="text-xs text-gray-400 mt-0.5">Onomatopées, interjections : Boom! Huff. Tsk.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-800/50">
+                      <span className="w-2 h-2 mt-1.5 rounded-full bg-cyan-400 flex-shrink-0"></span>
+                      <div>
+                        <span className="font-medium text-cyan-300">Système / Badge</span>
+                        <p className="text-xs text-gray-400 mt-0.5">Entre crochets : [Notification] [Alerte]</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-800/50 sm:col-span-2">
+                      <span className="w-2 h-2 mt-1.5 rounded-full bg-gray-400 flex-shrink-0"></span>
+                      <div>
+                        <span className="font-medium text-gray-300">Narration</span>
+                        <p className="text-xs text-gray-400 mt-0.5">Tout le reste est traité comme du texte narratif classique</p>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 italic">Vous pouvez aussi coller du HTML brut — il sera automatiquement parsé et classifié. <a href="/documentation/editeur" target="_blank" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Documentation complète →</a></p>
+                </div>
+              </details>
+            </div>
+
             <div className="rounded-xl overflow-hidden border border-gray-600">
               <RichEditor
                 value={editTexte}
@@ -278,8 +367,9 @@ export default function PanelView({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900 text-white p-4 sm:p-8">
+    <div className={embedded ? "text-white" : "min-h-screen bg-gradient-to-b from-gray-950 to-gray-900 text-white p-4 sm:p-8"}>
       {/* Header avec retour */}
+      {!embedded && (
       <div className="max-w-6xl mx-auto mb-6">
         <button
           onClick={onBack}
@@ -291,9 +381,10 @@ export default function PanelView({
           Retour aux œuvres
         </button>
       </div>
+      )}
 
       {/* Card principale */}
-      <div className="max-w-6xl mx-auto">
+      <div className={embedded ? "" : "max-w-6xl mx-auto"}>
         {/* Header de l'œuvre */}
         <div className="relative bg-gray-800/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-700/50 mb-6">
           {/* Background blur de la couverture */}
@@ -312,10 +403,12 @@ export default function PanelView({
               {/* Couverture */}
               <div className="flex-shrink-0 mx-auto sm:mx-0">
                 {couvertureUrl ? (
-                  <img
+                  <Image
                     src={couvertureUrl}
                     alt={titre}
                     className="w-32 h-44 sm:w-36 sm:h-52 object-cover rounded-xl shadow-2xl border-2 border-gray-700"
+                    width={144}
+                    height={208}
                   />
                 ) : (
                   <div className="w-32 h-44 sm:w-36 sm:h-52 rounded-xl bg-gradient-to-br from-indigo-800 to-purple-900 flex items-center justify-center border-2 border-gray-700 shadow-2xl">
@@ -360,6 +453,14 @@ export default function PanelView({
                       {annee}
                     </span>
                   )}
+                  {addedBy && (
+                    <span className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-600/20 rounded-full">
+                      <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      <span className="text-indigo-300 text-xs font-medium">Ajoutée par {addedBy.username}</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Stats rapides */}
@@ -370,7 +471,7 @@ export default function PanelView({
                     </svg>
                     <div>
                       <div className="text-lg font-bold text-white">{stats.total}</div>
-                      <div className="text-xs text-gray-500">chapitres</div>
+                      <div className="text-xs text-gray-400">chapitres</div>
                     </div>
                   </div>
                   {stats.lastUpdate && (
@@ -382,7 +483,7 @@ export default function PanelView({
                         <div className="text-sm font-medium text-white">
                           {stats.lastUpdate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                         </div>
-                        <div className="text-xs text-gray-500">dernière MAJ</div>
+                        <div className="text-xs text-gray-400">dernière MAJ</div>
                       </div>
                     </div>
                   )}
@@ -414,7 +515,7 @@ export default function PanelView({
               </div>
               <div>
                 <h2 className="text-xl font-bold">Gestion des chapitres</h2>
-                <p className="text-sm text-gray-500">{stats.total} chapitre{stats.total !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-gray-400">{stats.total} chapitre{stats.total !== 1 ? 's' : ''}</p>
               </div>
             </div>
             
@@ -444,7 +545,7 @@ export default function PanelView({
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
             {/* Recherche */}
             <div className="relative flex-1">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -515,11 +616,11 @@ export default function PanelView({
           {filteredChapitres.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-700/50 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <p className="text-gray-500 font-medium mb-2">
+              <p className="text-gray-400 font-medium mb-2">
                 {searchTerm ? "Aucun chapitre trouvé" : "Aucun chapitre pour cette œuvre"}
               </p>
               {searchTerm ? (
@@ -565,7 +666,8 @@ export default function PanelView({
                         e.stopPropagation();
                         setOpenMenuId(openMenuId === chapitre.id ? null : chapitre.id);
                       }}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="Options du chapitre"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
@@ -632,7 +734,7 @@ export default function PanelView({
                       <h3 className="font-semibold text-white truncate group-hover:text-indigo-300 transition-colors">
                         {chapitre.titre || "Sans titre"}
                       </h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
                         {chapitre.tome && (
                           <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-300 rounded">
                             Tome {chapitre.tome}
@@ -644,10 +746,65 @@ export default function PanelView({
                           </span>
                         )}
                       </div>
+                      {addedBy && (
+                        <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-indigo-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-indigo-400/60">{addedBy.username}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-gray-700/50">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-700/50 text-gray-300 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Précédent
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                  .map((p, idx, arr) => (
+                    <span key={p} className="flex items-center gap-1">
+                      {idx > 0 && arr[idx - 1] !== p - 1 && (
+                        <span className="text-gray-400 px-1">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                          p === currentPage
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-700/50 text-gray-400 hover:bg-gray-600 hover:text-white"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </span>
+                  ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-700/50 text-gray-300 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Suivant →
+              </button>
+              
+              <span className="text-xs text-gray-400 ml-2">
+                Page {currentPage}/{totalPages} ({allFilteredChapitres.length} chapitres)
+              </span>
             </div>
           )}
         </div>

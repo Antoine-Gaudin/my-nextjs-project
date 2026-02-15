@@ -29,6 +29,21 @@ body {
   height: 8px;
 }
 
+/* Toast slide-in animation */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
 ::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
@@ -127,5 +142,240 @@ body {
 *:focus-visible {
   outline: 2px solid rgba(99, 102, 241, 0.5);
   outline-offset: 2px;
+}
+
+/* ─── Smart Chapter Content ─── */
+
+/* Valeurs par défaut des variables de personnalisation */
+.chapter-content {
+  --reader-line-height: 1.85;
+  --reader-narration-color: #e5e7eb;
+  --reader-dialogue-color: #c7d2fe;
+  --reader-dialogue-border: rgba(129, 140, 248, 0.3);
+  --reader-thought-color: #a5b4c4;
+  --reader-sfx-color: #f9fafb;
+  --reader-badge-color: #a5b4fc;
+  --reader-badge-dot: #818cf8;
+}
+
+.chapter-content .smart-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Narration : prose standard */
+.chapter-content .narration {
+  color: var(--reader-narration-color);
+  line-height: var(--reader-line-height);
+  margin-bottom: 0.6em;
+  text-align: justify;
+  text-justify: inter-word;
+}
+
+/* Dialogue : indenté avec bordure accent */
+.chapter-content .dialogue {
+  color: var(--reader-dialogue-color);
+  line-height: calc(var(--reader-line-height) - 0.1);
+  margin-bottom: 0.5em;
+  padding-left: 1.25em;
+  border-left: 2px solid var(--reader-dialogue-border);
+  margin-left: 0.5em;
+}
+
+/* Dialogue style: italic (alternative) */
+.chapter-content.dialogue-style-italic .dialogue {
+  border-left: none;
+  padding-left: 0;
+  margin-left: 0;
+  font-style: italic;
+}
+
+/* Dialogue style: highlighted (alternative) */
+.chapter-content.dialogue-style-highlighted .dialogue {
+  border-left: none;
+  padding-left: 0.8em;
+  margin-left: 0;
+  background: rgba(129, 140, 248, 0.08);
+  border-radius: 0.5em;
+  padding: 0.4em 0.8em;
+}
+
+/* Pensées intérieures : italique, couleur douce */
+.chapter-content .thought {
+  color: var(--reader-thought-color);
+  line-height: calc(var(--reader-line-height) - 0.1);
+  margin-bottom: 0.5em;
+  font-style: italic;
+  padding-left: 1em;
+  opacity: 0.9;
+}
+
+/* Pensées style: dimmed (alternative) */
+.chapter-content.thought-style-dimmed .thought {
+  font-style: normal;
+  opacity: 0.65;
+  padding-left: 0;
+}
+
+/* Pensées style: border (alternative) */
+.chapter-content.thought-style-border .thought {
+  font-style: normal;
+  opacity: 1;
+  border-left: 2px dashed var(--reader-thought-color);
+  margin-left: 0.5em;
+}
+
+/* Classification désactivée */
+.chapter-content.no-classification .dialogue,
+.chapter-content.no-classification .thought,
+.chapter-content.no-classification .sfx,
+.chapter-content.no-classification .game-badge,
+.chapter-content.no-classification .narration {
+  color: var(--reader-narration-color);
+  line-height: var(--reader-line-height);
+  margin-bottom: 0.6em;
+  text-align: left;
+  font-style: normal;
+  font-weight: normal;
+  font-size: inherit;
+  letter-spacing: normal;
+  text-shadow: none;
+  border-left: none;
+  padding-left: 0;
+  margin-left: 0;
+  opacity: 1;
+  font-family: inherit;
+  text-align: justify;
+  text-justify: inter-word;
+}
+
+.chapter-content.no-classification .game-badge::before {
+  display: none;
+}
+
+/* Effets sonores : centré, bold, impact */
+.chapter-content .sfx {
+  text-align: center;
+  font-weight: 700;
+  color: var(--reader-sfx-color);
+  letter-spacing: 0.08em;
+  margin: 1em 0;
+  font-size: 1.1em;
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+/* Badges de jeu : centré, stylisé comme UI de jeu */
+.chapter-content .game-badge {
+  text-align: center;
+  margin: 0.8em auto;
+  padding: 0.35em 1.2em;
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+  color: var(--reader-badge-color);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.chapter-content .game-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--reader-badge-dot);
+  border-radius: 50%;
+  margin-right: 0.6em;
+  align-self: center;
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.5);
+}
+
+/* Séparateur de scène */
+.chapter-content .scene-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  margin: 2em 0;
+  color: rgba(99, 102, 241, 0.4);
+  font-size: 0.85em;
+  user-select: none;
+}
+
+.chapter-content .scene-break::before,
+.chapter-content .scene-break::after {
+  content: '';
+  flex: 1;
+  max-width: 80px;
+  height: 1px;
+  background: linear-gradient(
+    to var(--dir, right),
+    transparent,
+    rgba(99, 102, 241, 0.3)
+  );
+}
+
+.chapter-content .scene-break::before {
+  --dir: right;
+}
+
+.chapter-content .scene-break::after {
+  --dir: left;
+}
+
+/* ========== Migration Content Styles ========== */
+.migration-content {
+  color: #e2e8f0;
+  font-size: 1.05rem;
+  line-height: 1.85;
+  letter-spacing: 0.01em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.migration-content p {
+  margin-bottom: 0.75em;
+}
+
+.migration-content br {
+  content: "";
+  display: block;
+  margin-bottom: 0.4em;
+}
+
+.migration-content strong,
+.migration-content b {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.migration-content em,
+.migration-content i {
+  color: #a5b4fc;
+  font-style: italic;
+}
+
+.migration-content a {
+  color: #818cf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.migration-content a:hover {
+  color: #a5b4fc;
+}
+
+.migration-content hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  margin: 2em 0;
+}
+
+.migration-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1em 0;
 }
 

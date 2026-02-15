@@ -9,6 +9,8 @@ import Profil from "../componants/Profil";
 import Parametre from "../componants/Parametres";
 import Editions from "../componants/Editions";
 import Teams from "../componants/Teams";
+import DashboardTraducteur from "../componants/DashboardTraducteur";
+import AdminComparatif from "../componants/AdminComparatif";
 
 export default function ProfilPage() {
   const [user, setUser] = useState(null);
@@ -66,8 +68,12 @@ export default function ProfilPage() {
         return <Parametre user={user} setUser={setUser} onMenuSelect={setActiveMenu} />;
       case "editions":
         return <Editions user={user} />;
+      case "dashboard":
+        return <DashboardTraducteur user={user} />;
       case "teams":
         return <Teams user={user} />;
+      case "comparatif":
+        return <AdminComparatif user={user} />;
       case "profil":
       default:
         return <Profil user={user} />;
@@ -77,7 +83,7 @@ export default function ProfilPage() {
   return (
     <div className="flex flex-col md:flex-row h-full">
       <div>
-        <NavProfil onMenuSelect={setActiveMenu} user={user} />
+        <NavProfil onMenuSelect={setActiveMenu} user={user} activeMenu={activeMenu} />
       </div>
       <main className="flex-grow bg-gray-900 text-white p-8">
         {renderContent()}

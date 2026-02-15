@@ -11,7 +11,6 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
   
   const handleFileChange = (e) => {
     setPdfFile(e.target.files[0]); // Stocke le fichier sélectionné
-    console.log("Fichier PDF sélectionné :", e.target.files[0]);
   };
 
   const handleSubmit = async (e) => {
@@ -28,13 +27,6 @@ const TéléchargerChapitre = ({ oeuvreId, onClose, onChapitreUploaded }) => {
         alert("Token JWT manquant. Veuillez vous reconnecter.");
         return;
       }
-
-      console.log("Données d'entrée avant envoi :", {
-        titre,
-        order,
-        oeuvreId,
-        pdfFileName: pdfFile.name,
-      });
 
       // Étape 1 : Uploader le fichier PDF
       const formData = new FormData();

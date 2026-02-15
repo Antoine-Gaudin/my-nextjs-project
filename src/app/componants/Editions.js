@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Cookies from "js-cookie";
 import AddOeuvreForm from "../componants/AddOeuvreForm";
 import PanelOeuvre from "../componants/PanelOeuvre";
@@ -65,9 +66,9 @@ export default function Editions({ user }) {
     <div className="p-8 bg-gray-950 text-white min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 tracking-tight">
+          <h2 className="text-3xl font-bold mb-2 tracking-tight">
             Page Edition
-          </h1>
+          </h2>
           <p className="text-gray-400">
             Bienvenue, {user.username}. Cette section est reservee aux
             redacteurs pour gerer leurs oeuvres.
@@ -95,7 +96,7 @@ export default function Editions({ user }) {
               <div className="text-center mt-16 py-12 bg-gray-900 rounded-2xl border border-gray-800">
                 <div className="text-5xl mb-4 opacity-30">0</div>
                 <p className="text-lg text-gray-400">Aucune oeuvre ajoutee pour le moment.</p>
-                <p className="text-sm text-gray-500 mt-1">Cliquez sur "Ajouter une oeuvre" pour commencer.</p>
+                <p className="text-sm text-gray-400 mt-1">Cliquez sur "Ajouter une oeuvre" pour commencer.</p>
               </div>
             ) : (
               <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -143,19 +144,22 @@ export default function Editions({ user }) {
                         onClick={handleDelete}
                         className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Supprimer"
+                        aria-label="Supprimer l'œuvre"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>
 
                       {couvertureUrl ? (
-                        <img
+                        <Image
                           src={couvertureUrl}
                           alt={titre}
                           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          width={400}
+                          height={192}
                         />
                       ) : (
                         <div className="w-full h-48 bg-gray-700 flex items-center justify-center">
-                          <span className="text-gray-500">
+                          <span className="text-gray-400">
                             Pas de couverture
                           </span>
                         </div>

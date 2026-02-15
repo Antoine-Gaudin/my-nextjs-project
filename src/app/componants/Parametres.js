@@ -144,7 +144,7 @@ export default function Parametre({ user, setUser, onMenuSelect }) {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Paramètres</h1>
+        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Paramètres</h2>
         <p className="text-gray-400">Gérez votre compte et vos préférences</p>
       </div>
 
@@ -263,7 +263,7 @@ export default function Parametre({ user, setUser, onMenuSelect }) {
               </div>
               <div className="flex justify-between items-center py-3">
                 <span className="text-gray-400">Identifiant</span>
-                <span className="text-gray-500 font-mono text-sm">#{user?.id}</span>
+                <span className="text-gray-400 font-mono text-sm">#{user?.id}</span>
               </div>
             </div>
           )}

@@ -10,15 +10,20 @@ export default function Profil({ user }) {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Récupérer les œuvres de l'utilisateur avec leurs chapitres
-        const oeuvresRes = await fetch(`/api/proxy/oeuvres?filters[users][id][$eq]=${user.id}&populate=chapitres&pagination[limit]=1000`);
+        // Récupérer les œuvres de l'utilisateur (sans populate chapitres, trop lourd)
+        const oeuvresRes = await fetch(`/api/proxy/oeuvres?filters[users][id][$eq]=${user.id}&fields[0]=titre&fields[1]=documentId&pagination[pageSize]=100`);
         const oeuvresData = await oeuvresRes.json();
-        
-        // Compter le total des chapitres à partir des œuvres
         const oeuvresList = oeuvresData.data || [];
-        const totalChapitres = oeuvresList.reduce((acc, oeuvre) => {
-          return acc + (oeuvre.chapitres?.length || 0);
-        }, 0);
+
+        // Compter les chapitres par oeuvre avec des requêtes légères (count seul)
+        let totalChapitres = 0;
+        for (const oeuvre of oeuvresList) {
+          try {
+            const chapRes = await fetch(`/api/proxy/chapitres?filters[oeuvres][documentId][$eq]=${oeuvre.documentId}&pagination[pageSize]=1&fields[0]=documentId`);
+            const chapData = await chapRes.json();
+            totalChapitres += chapData.meta?.pagination?.total || 0;
+          } catch { /* ignorer les erreurs individuelles */ }
+        }
 
         setStats({
           oeuvres: oeuvresList.length,
@@ -211,7 +216,7 @@ export default function Profil({ user }) {
             </div>
             <div className="flex justify-between items-center py-2 border-b border-gray-700/30">
               <span className="text-gray-400">Identifiant</span>
-              <span className="text-gray-500 font-mono text-sm">#{user?.id}</span>
+              <span className="text-gray-400 font-mono text-sm">#{user?.id}</span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-gray-400">Statut email</span>
@@ -272,15 +277,15 @@ export default function Profil({ user }) {
               {!user?.redacteur && (
                 <div className="flex items-center gap-3 p-3 bg-gray-700/20 rounded-lg border border-dashed border-gray-600">
                   <div className="w-10 h-10 rounded-lg bg-gray-600/30 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
                   <div>
                     <p className="text-gray-400 font-medium">Rédacteur</p>
-                    <p className="text-gray-500 text-sm">Permission non attribuée</p>
+                    <p className="text-gray-400 text-sm">Permission non attribuée</p>
                   </div>
-                  <span className="ml-auto px-2 py-1 bg-gray-600/30 text-gray-500 text-xs rounded-full">Verrouillé</span>
+                  <span className="ml-auto px-2 py-1 bg-gray-600/30 text-gray-400 text-xs rounded-full">Verrouillé</span>
                 </div>
               )}
             </div>

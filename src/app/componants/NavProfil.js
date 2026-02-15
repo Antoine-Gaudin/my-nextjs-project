@@ -4,9 +4,20 @@ import { useState } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 
-export default function NavProfil({ onMenuSelect, user }) {
+export default function NavProfil({ onMenuSelect, user, activeMenu }) {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const isAdmin = user?.email === "agaudin76@gmail.com";
+
+  const menuItems = [
+    { key: "profil", label: "Profil", icon: "👤", show: true },
+    { key: "editions", label: "Page Édition", icon: "✍️", show: !!user?.redacteur },
+    { key: "dashboard", label: "Dashboard", icon: "📊", show: !!user?.redacteur },
+    { key: "teams", label: "Mes Teams", icon: "👥", show: true },
+    { key: "comparatif", label: "Comparatif Index", icon: "📋", show: isAdmin },
+    { key: "parametre", label: "Paramètre", icon: "⚙️", show: true },
+  ];
 
   const handleLogout = () => {
     Cookies.remove("jwt");
@@ -40,34 +51,19 @@ export default function NavProfil({ onMenuSelect, user }) {
         </div>
 
         <nav className="p-4 space-y-2">
-          <button
-            onClick={() => onMenuSelect("profil")}
-            className="w-full text-left px-4 py-2 rounded-lg hover:bg-indigo-600 transition"
-          >
-            👤 Profil
-          </button>
-          {/* ✅ Bouton Édition si rédacteur */}
-          {user?.redacteur && (
+          {menuItems.filter((item) => item.show).map((item) => (
             <button
-              onClick={() => onMenuSelect("editions")}
-              className="w-full text-left px-4 py-2 rounded-lg hover:bg-indigo-600 transition"
+              key={item.key}
+              onClick={() => onMenuSelect(item.key)}
+              className={`w-full text-left px-4 py-2 rounded-lg transition ${
+                activeMenu === item.key
+                  ? "bg-indigo-600 text-white"
+                  : "hover:bg-indigo-600/50 text-gray-300"
+              }`}
             >
-              ✍️ Page Édition
+              {item.icon} {item.label}
             </button>
-          )}
-
-          <button
-            onClick={() => onMenuSelect("teams")}
-            className="w-full text-left px-4 py-2 rounded-lg hover:bg-indigo-600 transition"
-          >
-            👥 Mes Teams
-          </button>
-          <button
-            onClick={() => onMenuSelect("parametre")}
-            className="w-full text-left px-4 py-2 rounded-lg hover:bg-indigo-600 transition"
-          >
-            ⚙️ Paramètre
-          </button>
+          ))}
           <hr className="border-gray-700 my-2" />
 
           <button

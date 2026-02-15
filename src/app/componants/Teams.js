@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Cookies from "js-cookie";
 import TeamCard from "./TeamCard";
 import TeamForm from "./TeamForm";
@@ -13,24 +14,24 @@ export default function Teams({ user }) {
   const [showForm, setShowForm] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [activeTab, setActiveTab] = useState("myTeams");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const fetchTeams = async () => {
     const jwt = Cookies.get("jwt");
     if (!jwt) return;
 
+    setErrorMsg("");
     try {
-      const TEAMS_API = "http://localhost:1337/api";
-
       // Récupérer les teams où l'utilisateur est owner
       const ownerRes = await fetch(
-        `${TEAMS_API}/teams?filters[owner][id][$eq]=${user.id}&populate=logo&populate=membres&populate=oeuvres`,
+        `/api/proxy/teams?filters[owner][id][$eq]=${user.id}&populate=logo&populate=membres&populate=oeuvres`,
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
       const ownerData = await ownerRes.json();
 
       // Récupérer les teams où l'utilisateur est membre
       const memberRes = await fetch(
-        `${TEAMS_API}/teams?filters[membres][id][$eq]=${user.id}&populate=logo&populate=membres&populate=oeuvres&populate=owner`,
+        `/api/proxy/teams?filters[membres][id][$eq]=${user.id}&populate=logo&populate=membres&populate=oeuvres&populate=owner`,
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
       const memberData = await memberRes.json();
@@ -47,7 +48,7 @@ export default function Teams({ user }) {
 
       // Récupérer les invitations en attente
       const invitesRes = await fetch(
-        `${TEAMS_API}/team-invitations?filters[user][id][$eq]=${user.id}&filters[status][$eq]=pending&populate=team.logo`,
+        `/api/proxy/team-invitations?filters[user][id][$eq]=${user.id}&filters[status][$eq]=pending&populate=team.logo`,
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
       const invitesData = await invitesRes.json();
@@ -55,6 +56,7 @@ export default function Teams({ user }) {
 
     } catch (error) {
       console.error("Erreur fetch teams:", error);
+      setErrorMsg("Impossible de charger vos teams. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
     }
@@ -72,10 +74,9 @@ export default function Teams({ user }) {
 
     try {
       const invitation = invitations.find((i) => i.documentId === invitationId);
-      const TEAMS_API = "http://localhost:1337/api";
       
       // Mettre à jour le statut de l'invitation
-      await fetch(`${TEAMS_API}/team-invitations/${invitationId}`, {
+      await fetch(`/api/proxy/team-invitations/${invitationId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -89,14 +90,14 @@ export default function Teams({ user }) {
       if (accept && invitation?.team?.documentId) {
         // Récupérer la team et ses membres actuels
         const teamRes = await fetch(
-          `${TEAMS_API}/teams/${invitation.team.documentId}?populate=membres`,
+          `/api/proxy/teams/${invitation.team.documentId}?populate=membres`,
           { headers: { Authorization: `Bearer ${jwt}` } }
         );
         const teamData = await teamRes.json();
         const currentMembers = teamData.data?.membres?.map((m) => m.id) || [];
 
         // Ajouter l'utilisateur aux membres
-        await fetch(`${TEAMS_API}/teams/${invitation.team.documentId}`, {
+        await fetch(`/api/proxy/teams/${invitation.team.documentId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -112,6 +113,7 @@ export default function Teams({ user }) {
       fetchTeams();
     } catch (error) {
       console.error("Erreur réponse invitation:", error);
+      setErrorMsg("Erreur lors de la réponse à l'invitation. Veuillez réessayer.");
     }
   };
 
@@ -147,7 +149,7 @@ export default function Teams({ user }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Mes Teams</h1>
+          <h2 className="text-2xl font-bold text-white">Mes Teams</h2>
           <p className="text-gray-400 mt-1">
             Gérez vos équipes de traduction et collaborez sur des projets
           </p>
@@ -162,6 +164,16 @@ export default function Teams({ user }) {
           Créer une Team
         </button>
       </div>
+
+      {/* Message d'erreur */}
+      {errorMsg && (
+        <div className="mb-6 p-4 bg-red-600/20 border border-red-600/30 rounded-xl flex items-center justify-between">
+          <p className="text-red-400 text-sm">{errorMsg}</p>
+          <button onClick={() => setErrorMsg("")} className="text-red-400 hover:text-red-300 ml-4">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
 
       {/* Invitations en attente */}
       {invitations.length > 0 && (
@@ -179,11 +191,13 @@ export default function Teams({ user }) {
                 className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  {invite.team?.logo?.[0]?.url ? (
-                    <img
-                      src={invite.team.logo[0].url}
+                  {(Array.isArray(invite.team?.logo) ? invite.team?.logo?.[0]?.url : invite.team?.logo?.url) ? (
+                    <Image
+                      src={Array.isArray(invite.team.logo) ? invite.team.logo[0].url : invite.team.logo.url}
                       alt={invite.team.nom}
                       className="w-10 h-10 rounded-lg object-cover"
+                      width={40}
+                      height={40}
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
@@ -192,7 +206,7 @@ export default function Teams({ user }) {
                   )}
                   <div>
                     <p className="text-white font-medium">{invite.team?.nom || "Team"}</p>
-                    <p className="text-gray-500 text-sm">Rôle: {invite.role || "member"}</p>
+                    <p className="text-gray-400 text-sm">Rôle: {invite.role === "editor" || invite.role === "editeur" ? "Éditeur" : invite.role === "admin" ? "Admin" : "Membre"}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -220,7 +234,7 @@ export default function Teams({ user }) {
         <button
           onClick={() => setActiveTab("myTeams")}
           className={`px-4 py-2.5 font-medium text-sm transition-all relative ${
-            activeTab === "myTeams" ? "text-indigo-400" : "text-gray-500 hover:text-gray-300"
+            activeTab === "myTeams" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
           }`}
         >
           Mes Teams ({teams.length})
@@ -231,7 +245,7 @@ export default function Teams({ user }) {
         <button
           onClick={() => setActiveTab("owned")}
           className={`px-4 py-2.5 font-medium text-sm transition-all relative ${
-            activeTab === "owned" ? "text-indigo-400" : "text-gray-500 hover:text-gray-300"
+            activeTab === "owned" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
           }`}
         >
           Teams créées ({teams.filter((t) => t.owner?.id === user.id || t.owner === user.id).length})
@@ -257,7 +271,7 @@ export default function Teams({ user }) {
             </svg>
           </div>
           <h3 className="text-xl font-semibold text-white mb-2">Aucune team</h3>
-          <p className="text-gray-500 mb-6">
+          <p className="text-gray-400 mb-6">
             Créez votre première équipe pour collaborer sur des projets de traduction
           </p>
           <button
@@ -272,14 +286,34 @@ export default function Teams({ user }) {
           {(activeTab === "owned"
             ? teams.filter((t) => t.owner?.id === user.id || t.owner === user.id)
             : teams
-          ).map((team) => (
-            <TeamCard
-              key={team.documentId}
-              team={team}
-              user={user}
-              onClick={() => setSelectedTeam(team)}
-            />
-          ))}
+          ).length === 0 && activeTab === "owned" ? (
+            <div className="col-span-full text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gray-800 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <p className="text-gray-400 mb-4">Vous n'avez créé aucune team</p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-colors"
+              >
+                Créer une Team
+              </button>
+            </div>
+          ) : (
+            (activeTab === "owned"
+              ? teams.filter((t) => t.owner?.id === user.id || t.owner === user.id)
+              : teams
+            ).map((team) => (
+              <TeamCard
+                key={team.documentId}
+                team={team}
+                user={user}
+                onClick={() => setSelectedTeam(team)}
+              />
+            ))
+          )}
         </div>
       )}
     </div>

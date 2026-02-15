@@ -1,193 +1,50 @@
-"use client";
+import { notFound } from "next/navigation";
+import ChapitreReader from "../../../componants/ChapitreReader";
 
-import React, { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import axios from "axios";
-import Cookies from "js-cookie";
-import dynamic from "next/dynamic";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://my-strapi-project-yysn.onrender.com";
 
-const RichEditor = dynamic(() => import("../../componants/RichEditor"), { ssr: false });
+export default async function MoChapitrePage({ params }) {
+  const { documentid } = await params;
 
-const MoChapitre = () => {
-  const router = useRouter();
-  const { documentid } = useParams();
-  const [formData, setFormData] = useState({
-    titre: "",
-    order: "",
-    tome: "",
-  });
-  const [texte, setTexte] = useState("");
-  const [message, setMessage] = useState("");
+  try {
+    // Fetch le chapitre complet par documentId
+    const chapRes = await fetch(
+      `${API_URL}/api/chapitres/${documentid}?populate=oeuvres`,
+      { cache: "no-store" }
+    );
 
-  useEffect(() => {
-    const fetchChapitre = async () => {
-      try {
-        const jwt = Cookies.get("jwt");
-        if (!jwt) {
-          setMessage("JWT manquant. Veuillez vous reconnecter.");
-          return;
-        }
+    if (!chapRes.ok) return notFound();
+    const chapData = await chapRes.json();
+    const chapitre = chapData?.data;
+    if (!chapitre) return notFound();
 
-        const res = await axios.get(`/api/proxy/chapitres/${documentid}`, {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        });
+    // Récupérer l'oeuvre associée
+    const oeuvreDocId = chapitre.oeuvres?.[0]?.documentId;
+    if (!oeuvreDocId) return notFound();
 
-        const chapitre = res.data.data;
+    const oeuvreRes = await fetch(
+      `${API_URL}/api/oeuvres/${oeuvreDocId}?populate[couverture]=true&populate[chapitres][fields][0]=titre&populate[chapitres][fields][1]=order&populate[chapitres][fields][2]=documentId&populate[chapitres][fields][3]=tome`,
+      { cache: "no-store" }
+    );
 
-        setFormData({
-          titre: chapitre.titre || "",
-          order: chapitre.order || "",
-          tome: chapitre.tome || "",
-        });
+    if (!oeuvreRes.ok) return notFound();
+    const oeuvreData = await oeuvreRes.json();
+    const oeuvre = oeuvreData?.data;
+    if (!oeuvre) return notFound();
 
-        // Convert Strapi format to HTML for TinyMCE
-        const texteHTML = chapitre.texte
-          ? chapitre.texte
-              .map((t) => `<p>${t.children?.[0]?.text || ""}</p>`)
-              .join("")
-          : "";
-        setTexte(texteHTML);
-      } catch (error) {
-        console.error("Erreur lors de la recuperation du chapitre :", error);
-        setMessage("Erreur lors de la recuperation du chapitre.");
-      }
-    };
+    const chapitresMeta = oeuvre.chapitres || [];
 
-    fetchChapitre();
-  }, [documentid]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const formattedTexte = texte
-      .split(/<p>|<\/p>/)
-      .filter((line) => line.trim() !== "")
-      .map((line) => ({
-        type: "paragraph",
-        children: [{ type: "text", text: line.replace(/<br>/g, "\n").trim() }],
-      }));
-
-    if (formattedTexte.length === 0) {
-      formattedTexte.push({
-        type: "paragraph",
-        children: [{ type: "text", text: texte.replace(/<[^>]+>/g, "") }],
-      });
-    }
-
-    if (!formData.titre || !formData.order || !texte) {
-      alert("Veuillez remplir tous les champs obligatoires !");
-      return;
-    }
-
-    try {
-      const jwt = Cookies.get("jwt");
-      if (!jwt) {
-        setMessage("JWT manquant. Veuillez vous reconnecter.");
-        return;
-      }
-
-      const payload = {
-        data: {
-          titre: formData.titre,
-          order: parseInt(formData.order, 10),
-          texte: formattedTexte,
-          tome: formData.tome || null,
-        },
-      };
-
-      await axios.put(`/api/proxy/chapitres/${documentid}`, payload, {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-
-      setMessage("Chapitre modifie avec succes !");
-      router.back();
-    } catch (error) {
-      console.error("Erreur lors de la modification :", error);
-      setMessage("Erreur lors de la modification.");
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col p-6">
-      <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="bg-blue-500 hover:bg-blue-400 text-white px-4 py-2 rounded"
-        >
-          Retour
-        </button>
-      </div>
-      <h1 className="text-3xl font-bold mb-6">Modifier le Chapitre</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium mb-1">Titre :</label>
-          <input
-            type="text"
-            name="titre"
-            value={formData.titre}
-            onChange={handleInputChange}
-            className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Ordre :</label>
-          <input
-            type="number"
-            name="order"
-            value={formData.order}
-            onChange={handleInputChange}
-            className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Tome :</label>
-          <input
-            type="text"
-            name="tome"
-            value={formData.tome}
-            onChange={handleInputChange}
-            className="block w-full p-2 bg-gray-700 border border-gray-600 rounded focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Texte :</label>
-          <RichEditor
-            value={texte}
-            onChange={setTexte}
-            height={400}
-            placeholder="Contenu du chapitre..."
-          />
-        </div>
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="bg-red-600 px-4 py-2 rounded hover:bg-red-500"
-          >
-            Annuler
-          </button>
-          <button
-            type="submit"
-            className="bg-green-600 px-4 py-2 rounded hover:bg-green-500"
-          >
-            Enregistrer
-          </button>
-        </div>
-      </form>
-      {message && <p className="mt-6 text-green-400">{message}</p>}
-    </div>
-  );
-};
-
-export default MoChapitre;
+    return (
+      <ChapitreReader
+        chapitre={chapitre}
+        oeuvre={oeuvre}
+        chapitres={chapitresMeta}
+      />
+    );
+  } catch (err) {
+    console.error("Erreur chargement mochapitre:", err);
+    return notFound();
+  }
+}

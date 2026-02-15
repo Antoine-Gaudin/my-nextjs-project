@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-const TEAMS_API = "http://localhost:1337/api";
-
 export default function TeamDetailPage() {
   const params = useParams();
   const { slug } = params;
@@ -22,7 +20,7 @@ export default function TeamDetailPage() {
       try {
         // Récupérer la team par slug
         const res = await fetch(
-          `${TEAMS_API}/teams?filters[slug][$eq]=${slug}&filters[isPublic][$eq]=true&populate=logo&populate=owner&populate=membres&populate=oeuvres.couverture&populate=oeuvres.genres`
+          `/api/proxy/teams?filters[slug][$eq]=${slug}&filters[isPublic][$eq]=true&populate=logo&populate=owner&populate=membres&populate=oeuvres.couverture&populate=oeuvres.genres`
         );
         const data = await res.json();
 
@@ -70,12 +68,12 @@ export default function TeamDetailPage() {
             </svg>
           </div>
           <h2 className="text-xl font-bold text-white mb-2">{error || "Team non trouvée"}</h2>
-          <p className="text-gray-500 mb-6">Cette team n'existe pas ou n'est pas publique</p>
+          <p className="text-gray-400 mb-6">Cette team n'existe pas ou n'est pas publique</p>
           <Link
-            href="/teams"
+            href="/"
             className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-colors"
           >
-            Voir toutes les teams
+            Retour à l&apos;accueil
           </Link>
         </div>
       </div>
@@ -88,13 +86,13 @@ export default function TeamDetailPage() {
       <div className="bg-gradient-to-r from-indigo-900 to-purple-900 py-8 px-4">
         <div className="max-w-6xl mx-auto">
           <Link
-            href="/teams"
+            href="/"
             className="inline-flex items-center gap-2 text-gray-300 hover:text-white mb-6 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Toutes les teams
+            Retour à l&apos;accueil
           </Link>
 
           <div className="flex flex-col sm:flex-row gap-6 items-start">
@@ -174,7 +172,7 @@ export default function TeamDetailPage() {
           <button
             onClick={() => setActiveTab("oeuvres")}
             className={`px-4 py-3 font-medium transition-all relative ${
-              activeTab === "oeuvres" ? "text-indigo-400" : "text-gray-500 hover:text-gray-300"
+              activeTab === "oeuvres" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
             }`}
           >
             Œuvres ({oeuvres.length})
@@ -185,7 +183,7 @@ export default function TeamDetailPage() {
           <button
             onClick={() => setActiveTab("members")}
             className={`px-4 py-3 font-medium transition-all relative ${
-              activeTab === "members" ? "text-indigo-400" : "text-gray-500 hover:text-gray-300"
+              activeTab === "members" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
             }`}
           >
             Membres ({members.length + 1})
@@ -199,7 +197,7 @@ export default function TeamDetailPage() {
         {activeTab === "oeuvres" ? (
           <div>
             {oeuvres.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-gray-400">
                 <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
@@ -285,14 +283,14 @@ export default function TeamDetailPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-white">{member.username}</p>
-                    <span className="text-gray-500 text-sm">Membre</span>
+                    <span className="text-gray-400 text-sm">Membre</span>
                   </div>
                 </div>
               </div>
             ))}
 
             {members.length === 0 && (
-              <div className="col-span-full text-center py-8 text-gray-500">
+              <div className="col-span-full text-center py-8 text-gray-400">
                 Aucun autre membre pour le moment
               </div>
             )}
