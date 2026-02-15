@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import FicheOeuvre from "./componants/FicheOeuvre";
+import BannerCarousel from "./componants/BannerCarousel";
 
 export default function Home() {
   const [searchText, setSearchText] = useState("");
@@ -352,6 +353,13 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Bannière publicitaire */}
+      <section className="py-10 px-4 sm:px-8 bg-gray-950">
+        <div className="max-w-4xl mx-auto">
+          <BannerCarousel variant="inline" />
+        </div>
+      </section>
 
       {/* CTA Section */}
       <section className="bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 py-20 px-4 sm:px-8">

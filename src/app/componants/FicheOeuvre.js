@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import TeamAnnonces from "./TeamAnnonces";
+import BannerCarousel from "./BannerCarousel";
 
 export default function FicheOeuvre({ oeuvre, onClose }) {
   const [chapitres, setChapitres] = useState(null);
@@ -841,6 +842,11 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                 )}
               </div>
             )}
+
+            {/* Bannière publicitaire */}
+            <div className="mt-6">
+              <BannerCarousel variant="inline" />
+            </div>
           </div>
         </div>
       </div>

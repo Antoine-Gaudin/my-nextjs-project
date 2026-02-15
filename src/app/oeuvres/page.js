@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import FicheOeuvre from "../componants/FicheOeuvre";
+import BannerCarousel from "../componants/BannerCarousel";
 
 function OeuvresContent() {
   const [oeuvres, setOeuvres] = useState([]);
@@ -400,6 +401,13 @@ function OeuvresContent() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Bannière publicitaire */}
+      <div className="py-10 px-4 sm:px-8">
+        <div className="max-w-4xl mx-auto">
+          <BannerCarousel variant="inline" />
+        </div>
       </div>
 
       {/* Fiche Oeuvre (Pop-up) */}
