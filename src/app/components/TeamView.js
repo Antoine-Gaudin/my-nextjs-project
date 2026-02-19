@@ -9,6 +9,7 @@ import TeamOeuvres from "./TeamOeuvres";
 import TeamKanban from "./TeamKanban";
 import TeamGraphiques from "./TeamGraphiques";
 import TeamHistorique from "./TeamHistorique";
+import TeamPageAnnonces from "../team/[slug]/components/TeamPageAnnonces";
 import ConfirmDialog from "./ConfirmDialog";
 
 export default function TeamView({ team: initialTeam, user, onBack, onUpdate }) {
@@ -244,7 +245,7 @@ export default function TeamView({ team: initialTeam, user, onBack, onUpdate }) 
   }
 
   return (
-    <div className={`mx-auto ${activeTab === "kanban" || activeTab === "graphiques" ? "max-w-full px-2" : activeTab === "historique" ? "max-w-5xl" : "max-w-4xl"}`}>
+    <div className={`mx-auto ${activeTab === "kanban" || activeTab === "graphiques" ? "max-w-full px-2" : activeTab === "historique" || activeTab === "annonces" ? "max-w-5xl" : "max-w-4xl"}`}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -417,6 +418,17 @@ export default function TeamView({ team: initialTeam, user, onBack, onUpdate }) 
           )}
         </button>
         <button
+          onClick={() => setActiveTab("annonces")}
+          className={`px-4 py-2.5 font-medium text-sm transition-all relative whitespace-nowrap ${
+            activeTab === "annonces" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
+          }`}
+        >
+          Annonces
+          {activeTab === "annonces" && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab("oeuvres")}
           className={`px-4 py-2.5 font-medium text-sm transition-all relative whitespace-nowrap ${
             activeTab === "oeuvres" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
@@ -560,6 +572,13 @@ export default function TeamView({ team: initialTeam, user, onBack, onUpdate }) 
             )}
           </div>
         </div>
+      ) : activeTab === "annonces" ? (
+        <TeamPageAnnonces
+          team={team}
+          isOwner={isOwner}
+          currentUser={user}
+          oeuvres={oeuvres}
+        />
       ) : activeTab === "oeuvres" ? (
         <TeamOeuvres
           team={team}
