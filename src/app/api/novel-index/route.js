@@ -174,12 +174,13 @@ export async function POST(request) {
 
     // ─── Search oeuvres (autocomplete) ───
     if (action === "search-oeuvres") {
-      const { query = "", page = 1, pageSize = 20 } = data;
+      const { query = "", page = 1, pageSize = 30 } = data;
+      // Recherche souple : titre OU titrealt, insensible à la casse
       const filterParam = query
-        ? `filters[titre][$containsi]=${encodeURIComponent(query)}&`
+        ? `filters[$or][0][titre][$containsi]=${encodeURIComponent(query)}&filters[$or][1][titrealt][$containsi]=${encodeURIComponent(query)}&`
         : "";
       const res = await fetch(
-        `${INDEX_API_URL}/api/oeuvres?${filterParam}fields[0]=titre&fields[1]=documentId&fields[2]=type&populate[couverture][fields][0]=url&pagination[page]=${page}&pagination[pageSize]=${pageSize}&sort=titre:asc`,
+        `${INDEX_API_URL}/api/oeuvres?${filterParam}fields[0]=titre&fields[1]=titrealt&fields[2]=documentId&fields[3]=type&populate[couverture][fields][0]=url&pagination[page]=${page}&pagination[pageSize]=${pageSize}&sort=titre:asc`,
         { headers }
       );
       const result = await res.json();

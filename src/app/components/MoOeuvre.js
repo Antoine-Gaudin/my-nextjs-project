@@ -78,7 +78,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
   // Debounced search for novel-index oeuvres
   const searchNovelIndex = useCallback((query) => {
     if (niTimerRef.current) clearTimeout(niTimerRef.current);
-    if (!query || query.length < 2) { setNiResults([]); setNiDropdownOpen(false); return; }
+    if (!query || query.length < 1) { setNiResults([]); setNiDropdownOpen(false); return; }
     niTimerRef.current = setTimeout(async () => {
       setNiLoading(true);
       try {
@@ -86,7 +86,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
         const res = await fetch("/api/novel-index", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-          body: JSON.stringify({ action: "search-oeuvres", data: { query, pageSize: 10 } }),
+          body: JSON.stringify({ action: "search-oeuvres", data: { query, pageSize: 20 } }),
         });
         const json = await res.json();
         setNiResults(json.data || []);
@@ -351,13 +351,16 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
                       {item.couverture?.url && (
                         <Image src={item.couverture.url} alt="" width={28} height={40} className="rounded object-cover" unoptimized />
                       )}
-                      <span>{item.titre}</span>
-                      {item.type && <span className="ml-auto text-xs text-gray-500">{item.type}</span>}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate">{item.titre}</span>
+                        {item.titrealt && <span className="block text-xs text-gray-500 truncate">{item.titrealt}</span>}
+                      </div>
+                      {item.type && <span className="ml-auto text-xs text-gray-500 flex-shrink-0">{item.type}</span>}
                     </li>
                   ))}
                 </ul>
               )}
-              {niDropdownOpen && niResults.length === 0 && !niLoading && niSearch.length >= 2 && (
+              {niDropdownOpen && niResults.length === 0 && !niLoading && niSearch.length >= 1 && (
                 <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-400">
                   Aucune oeuvre trouvée sur Novel-Index
                 </div>
