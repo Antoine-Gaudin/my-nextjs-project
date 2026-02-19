@@ -379,6 +379,19 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
   const oeuvreTitle = oeuvre?.titre || "Œuvre";
   const chapterTitle = chapitre.titre || "Sans titre";
 
+  // Novel-Index URL
+  const novelIndexUrl = useMemo(() => {
+    if (!oeuvre?.novelIndexDocumentId) return null;
+    const titre = oeuvre.novelIndexTitre || oeuvre.titre || "";
+    const slug = titre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return `https://novel-index.com/oeuvre/${oeuvre.novelIndexDocumentId}-${slug}`;
+  }, [oeuvre]);
+
   // Dédupliquer et trier les chapitres numériquement
   const sortedChapitres = useMemo(() => {
     const seen = new Set();
@@ -1224,7 +1237,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
 
         {/* ─── Bannière publicitaire + Novel-Index ─── */}
         <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-12">
-          <BannerCarousel variant="inline" />
+          <BannerCarousel variant="inline" novelIndexUrl={novelIndexUrl} />
         </div>
 
         {/* ─── Footer de navigation ─── */}

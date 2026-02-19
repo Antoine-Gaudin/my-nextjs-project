@@ -13,6 +13,19 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [tags, setTags] = useState([]);
   const [genres, setGenres] = useState([]);
+
+  // Novel-Index URL
+  const novelIndexUrl = useMemo(() => {
+    if (!oeuvre?.novelIndexDocumentId) return null;
+    const titre = oeuvre.novelIndexTitre || oeuvre.titre || "";
+    const slug = titre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return `https://novel-index.com/oeuvre/${oeuvre.novelIndexDocumentId}-${slug}`;
+  }, [oeuvre]);
   const [users, setUsers] = useState([]);
   const [isLoadingChapitres, setIsLoadingChapitres] = useState(true);
   const [activeTab, setActiveTab] = useState("synopsis");
@@ -942,7 +955,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
 
             {/* Bannière publicitaire */}
             <div className="mt-6">
-              <BannerCarousel variant="inline" />
+              <BannerCarousel variant="inline" novelIndexUrl={novelIndexUrl} />
             </div>
           </div>
         </div>

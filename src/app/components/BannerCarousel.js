@@ -133,11 +133,12 @@ function KanveoRectangle() {
 /* ────────────────────────────────────────────
    SLIDE 2 — Novel-Index CTA
 ──────────────────────────────────────────── */
-function NovelIndexSlide({ variant }) {
+function NovelIndexSlide({ variant, href }) {
+  const url = href || "https://novel-index.com";
   if (variant === "rectangle") {
     return (
       <a
-        href="https://novel-index.com"
+        href={url}
         target="_blank"
         rel="noopener noreferrer"
         className="group flex flex-col items-center justify-center w-full max-w-[300px] mx-auto h-[250px] rounded-xl overflow-hidden bg-gradient-to-br from-indigo-950/60 to-purple-950/60 border border-indigo-500/20 hover:border-indigo-500/40 p-6 transition-all duration-300"
@@ -160,7 +161,7 @@ function NovelIndexSlide({ variant }) {
   // Variant inline (longboard / mobile)
   return (
     <a
-      href="https://novel-index.com"
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
       className="block w-full"
@@ -206,7 +207,7 @@ function NovelIndexSlide({ variant }) {
                "rectangle" → 300×250 pour fiches / sidebar
      interval : durée en ms entre les slides (défaut 8000)
 ──────────────────────────────────────────── */
-export default function BannerCarousel({ variant = "inline", interval = 8000 }) {
+export default function BannerCarousel({ variant = "inline", interval = 8000, novelIndexUrl }) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const totalSlides = 2;
@@ -245,7 +246,7 @@ export default function BannerCarousel({ variant = "inline", interval = 8000 }) 
 
           {/* Slide 2 : Novel-Index */}
           <div className="w-full flex-shrink-0 flex items-center justify-center">
-            <NovelIndexSlide variant={variant} />
+            <NovelIndexSlide variant={variant} href={novelIndexUrl} />
           </div>
         </div>
       </div>

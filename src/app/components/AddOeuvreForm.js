@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Cookies from "js-cookie";
 import dynamic from "next/dynamic";
@@ -24,6 +24,15 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
+  // Novel-index linking
+  const [niSearch, setNiSearch] = useState("");
+  const [niResults, setNiResults] = useState([]);
+  const [niSelected, setNiSelected] = useState(null);
+  const [niLoading, setNiLoading] = useState(false);
+  const [niDropdownOpen, setNiDropdownOpen] = useState(false);
+  const niRef = useRef(null);
+  const niTimerRef = useRef(null);
+
   useEffect(() => {
     const fetchUserId = async () => {
       const jwt = Cookies.get("jwt");
@@ -46,6 +55,55 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
 
     fetchUserId();
   }, []);
+
+  // Close novel-index dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (niRef.current && !niRef.current.contains(e.target)) setNiDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced search for novel-index oeuvres
+  const searchNovelIndex = useCallback((query) => {
+    if (niTimerRef.current) clearTimeout(niTimerRef.current);
+    if (!query || query.length < 2) { setNiResults([]); setNiDropdownOpen(false); return; }
+    niTimerRef.current = setTimeout(async () => {
+      setNiLoading(true);
+      try {
+        const jwt = Cookies.get("jwt");
+        const res = await fetch("/api/novel-index", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({ action: "search-oeuvres", data: { query, pageSize: 10 } }),
+        });
+        const json = await res.json();
+        setNiResults(json.data || []);
+        setNiDropdownOpen(true);
+      } catch { setNiResults([]); }
+      finally { setNiLoading(false); }
+    }, 350);
+  }, []);
+
+  const handleNiSearchChange = (e) => {
+    const val = e.target.value;
+    setNiSearch(val);
+    if (niSelected) setNiSelected(null);
+    searchNovelIndex(val);
+  };
+
+  const handleNiSelect = (item) => {
+    setNiSelected({ documentId: item.documentId, titre: item.titre });
+    setNiSearch(item.titre);
+    setNiDropdownOpen(false);
+  };
+
+  const handleNiClear = () => {
+    setNiSelected(null);
+    setNiSearch("");
+    setNiResults([]);
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -94,6 +152,10 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
           ...formData,
           synopsis: formattedSynopsis,
           users: [userId],
+          ...(niSelected ? {
+            novelIndexDocumentId: niSelected.documentId,
+            novelIndexTitre: niSelected.titre,
+          } : {}),
         },
       };
 
@@ -271,6 +333,49 @@ const AddOeuvreForm = ({ onClose, onOeuvreAdded }) => {
             )}
             <input type="file" accept="image/*" onChange={handleFileChange}
               className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
+          </div>
+
+          <div className="md:col-span-2" ref={niRef}>
+            <label className="block text-sm font-semibold mb-1">Lier à une oeuvre Novel-Index <span className="text-gray-500 font-normal">(optionnel)</span></label>
+            <div className="relative">
+              <input
+                type="text"
+                value={niSearch}
+                onChange={handleNiSearchChange}
+                placeholder="Rechercher une oeuvre sur Novel-Index..."
+                className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition pr-10"
+              />
+              {niLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              )}
+              {niSelected && !niLoading && (
+                <button type="button" onClick={handleNiClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-400 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
+              {niDropdownOpen && niResults.length > 0 && (
+                <ul className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg max-h-48 overflow-y-auto shadow-xl">
+                  {niResults.map((item) => (
+                    <li key={item.documentId} onClick={() => handleNiSelect(item)}
+                      className="px-4 py-2 hover:bg-indigo-600/30 cursor-pointer text-sm flex items-center gap-3 transition">
+                      {item.couverture?.url && (
+                        <Image src={item.couverture.url} alt="" width={28} height={40} className="rounded object-cover" unoptimized />
+                      )}
+                      <span>{item.titre}</span>
+                      {item.type && <span className="ml-auto text-xs text-gray-500">{item.type}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {niDropdownOpen && niResults.length === 0 && !niLoading && niSearch.length >= 2 && (
+                <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-400">
+                  Aucune oeuvre trouvée sur Novel-Index
+                </div>
+              )}
+            </div>
+            {niSelected && (
+              <p className="mt-1 text-xs text-green-400">✓ Liée à : {niSelected.titre}</p>
+            )}
           </div>
 
           <div className="md:col-span-2 flex justify-end gap-4 pt-4">

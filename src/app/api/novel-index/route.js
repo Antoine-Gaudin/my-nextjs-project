@@ -27,7 +27,7 @@ function getClientIp(request) {
 }
 
 // Routes autorisées sur novel-index
-const ALLOWED_ACTIONS = ["sync-oeuvre", "sync-chapitre", "delete-chapitre", "find-oeuvre", "list-oeuvres", "list-chapitres"];
+const ALLOWED_ACTIONS = ["sync-oeuvre", "sync-chapitre", "delete-chapitre", "find-oeuvre", "list-oeuvres", "list-chapitres", "search-oeuvres"];
 
 // POST — Toutes les opérations de sync novel-index
 export async function POST(request) {
@@ -166,6 +166,20 @@ export async function POST(request) {
       const { page = 1, pageSize = 100 } = data;
       const res = await fetch(
         `${INDEX_API_URL}/api/oeuvres?populate=couverture&pagination[page]=${page}&pagination[pageSize]=${pageSize}&sort=titre:asc`,
+        { headers }
+      );
+      const result = await res.json();
+      return NextResponse.json(result, { status: res.status });
+    }
+
+    // ─── Search oeuvres (autocomplete) ───
+    if (action === "search-oeuvres") {
+      const { query = "", page = 1, pageSize = 20 } = data;
+      const filterParam = query
+        ? `filters[titre][$containsi]=${encodeURIComponent(query)}&`
+        : "";
+      const res = await fetch(
+        `${INDEX_API_URL}/api/oeuvres?${filterParam}fields[0]=titre&fields[1]=documentId&fields[2]=type&populate[couverture][fields][0]=url&pagination[page]=${page}&pagination[pageSize]=${pageSize}&sort=titre:asc`,
         { headers }
       );
       const result = await res.json();
