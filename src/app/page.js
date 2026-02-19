@@ -4,8 +4,20 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import FicheOeuvre from "./componants/FicheOeuvre";
-import BannerCarousel from "./componants/BannerCarousel";
+import dynamic from "next/dynamic";
+
+const FicheOeuvre = dynamic(() => import("./components/FicheOeuvre"), { ssr: false });
+import BannerCarousel from "./components/BannerCarousel";
+
+// Constante hors composant pour éviter les re-créations à chaque render
+const categories = [
+  { name: "Light Novel", icon: "📖", color: "from-purple-500 to-indigo-600" },
+  { name: "Web Novel", icon: "🌐", color: "from-blue-500 to-cyan-600" },
+  { name: "Manga", icon: "📚", color: "from-pink-500 to-rose-600" },
+  { name: "Manhua", icon: "🎨", color: "from-orange-500 to-amber-600" },
+  { name: "Manhwa", icon: "✨", color: "from-green-500 to-emerald-600" },
+  { name: "Fan Fiction", icon: "✍️", color: "from-red-500 to-pink-600" },
+];
 
 export default function Home() {
   const [searchText, setSearchText] = useState("");
@@ -17,16 +29,6 @@ export default function Home() {
   const [stats, setStats] = useState({ oeuvres: 0, chapitres: 0, traducteurs: 0 });
   const searchTimerRef = useRef(null);
   const router = useRouter();
-
-  // Catégories disponibles
-  const categories = [
-    { name: "Light Novel", icon: "📖", color: "from-purple-500 to-indigo-600" },
-    { name: "Web Novel", icon: "🌐", color: "from-blue-500 to-cyan-600" },
-    { name: "Manga", icon: "📚", color: "from-pink-500 to-rose-600" },
-    { name: "Manhua", icon: "🎨", color: "from-orange-500 to-amber-600" },
-    { name: "Manhwa", icon: "✨", color: "from-green-500 to-emerald-600" },
-    { name: "Fan Fiction", icon: "✍️", color: "from-red-500 to-pink-600" },
-  ];
 
   useEffect(() => {
     const fetchPopularOeuvres = async () => {

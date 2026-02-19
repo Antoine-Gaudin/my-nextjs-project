@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import ChapitreReader from "../../../../componants/ChapitreReader";
+import ChapitreReader from "../../../../components/ChapitreReader";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -11,7 +11,7 @@ export default async function ChapitrePage({ params }) {
   try {
     // Fetch l'oeuvre avec tous ses chapitres (metadata légères) + couverture
     const oeuvreRes = await fetch(
-      `${API_URL}/api/oeuvres/${slug}?populate[couverture]=true&populate[chapitres][fields][0]=titre&populate[chapitres][fields][1]=order&populate[chapitres][fields][2]=documentId&populate[chapitres][fields][3]=tome`,
+      `${API_URL}/api/oeuvres/${slug}?populate[couverture]=true&populate[chapitres][fields][0]=titre&populate[chapitres][fields][1]=order&populate[chapitres][fields][2]=documentId&populate[chapitres][fields][3]=tome&populate[chapitres][fields][4]=pdf`,
       { next: { revalidate: 60 } }
     );
 
@@ -25,7 +25,7 @@ export default async function ChapitrePage({ params }) {
     const target = chapitresMeta.find((c) => String(c.order) === String(order));
     if (!target) return notFound();
 
-    // Fetch le chapitre complet (avec texte)
+    // Fetch le chapitre complet (avec texte + pdf)
     const chapRes = await fetch(
       `${API_URL}/api/chapitres/${target.documentId}?populate=*`,
       { next: { revalidate: 60 } }

@@ -9,7 +9,7 @@ jest.mock("js-cookie", () => ({
 
 global.fetch = jest.fn();
 
-import TeamAnnonces from "../src/app/componants/TeamAnnonces";
+import TeamAnnonces from "../src/app/components/TeamAnnonces";
 
 describe("TeamAnnonces", () => {
   beforeEach(() => {

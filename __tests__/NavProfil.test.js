@@ -14,7 +14,7 @@ jest.mock("js-cookie", () => ({
   remove: jest.fn(),
 }));
 
-import NavProfil from "../src/app/componants/NavProfil";
+import NavProfil from "../src/app/components/NavProfil";
 
 describe("NavProfil", () => {
   const mockOnMenuSelect = jest.fn();

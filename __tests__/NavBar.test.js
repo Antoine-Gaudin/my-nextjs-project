@@ -18,7 +18,7 @@ jest.mock("js-cookie", () => ({
   remove: jest.fn(),
 }));
 
-import NavBar from "../src/app/componants/NavBar";
+import NavBar from "../src/app/components/NavBar";
 
 describe("NavBar", () => {
   beforeEach(() => {

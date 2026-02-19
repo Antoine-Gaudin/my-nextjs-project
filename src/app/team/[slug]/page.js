@@ -3,6 +3,15 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import Cookies from "js-cookie";
+import DOMPurify from "dompurify";
+import TeamTheme from "./components/TeamTheme";
+import TeamBanner from "./components/TeamBanner";
+import TeamCustomSections from "./components/TeamCustomSections";
+import TeamCustomizationPanel from "./components/TeamCustomizationPanel";
+import TeamPageAnnonces from "./components/TeamPageAnnonces";
+import TeamSubscribeButton from "./components/TeamSubscribeButton";
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -12,15 +21,17 @@ export default function TeamDetailPage() {
   const [members, setMembers] = useState([]);
   const [oeuvres, setOeuvres] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("oeuvres");
+  const [activeTab, setActiveTab] = useState("about");
   const [error, setError] = useState(null);
+  const [showCustomizationPanel, setShowCustomizationPanel] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     const fetchTeam = async () => {
       try {
-        // Récupérer la team par slug
+        // Récupérer la team par slug avec tous les champs de personnalisation
         const res = await fetch(
-          `/api/proxy/teams?filters[slug][$eq]=${slug}&filters[isPublic][$eq]=true&populate=logo&populate=owner&populate=membres&populate=oeuvres.couverture&populate=oeuvres.genres`
+          `/api/proxy/teams?filters[slug][$eq]=${slug}&filters[isPublic][$eq]=true&populate=logo&populate=banniere&populate=owner&populate=membres&populate=oeuvres.couverture&populate=oeuvres.genres`
         );
         const data = await res.json();
 
@@ -46,6 +57,54 @@ export default function TeamDetailPage() {
       fetchTeam();
     }
   }, [slug]);
+
+  // Récupérer l'utilisateur connecté
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const jwt = Cookies.get("jwt");
+      if (!jwt) return;
+      try {
+        const res = await fetch("/api/proxy/users/me", {
+          headers: { Authorization: `Bearer ${jwt}` },
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUser(data);
+        }
+      } catch (err) {
+        console.error("Erreur fetch user:", err);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  // Fonction pour mettre à jour la team
+  const handleUpdateTeam = async (updates) => {
+    const jwt = Cookies.get("jwt");
+    if (!jwt) throw new Error("Non authentifié");
+    try {
+      const res = await fetch(`/api/proxy/teams/${team.documentId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({ data: updates }),
+      });
+
+      if (!res.ok) throw new Error("Erreur lors de la mise à jour");
+
+      setTeam({ ...team, ...updates });
+      setShowCustomizationPanel(false);
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour:", error);
+      throw error;
+    }
+  };
+
+  // Vérifier si l'utilisateur est le propriétaire de la team
+  const isOwner = currentUser?.id && team?.owner?.id && currentUser.id === team.owner.id;
 
   if (isLoading) {
     return (
@@ -81,120 +140,147 @@ export default function TeamDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 to-purple-900 py-8 px-4">
-        <div className="max-w-6xl mx-auto">
+    <TeamTheme team={team}>
+      <div className="min-h-screen bg-gray-900 text-white">
+        {/* Retour */}
+        <div className="absolute top-4 left-4 z-20">
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-gray-300 hover:text-white mb-6 transition-colors"
+            href="/teams"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900/80 hover:bg-gray-900 backdrop-blur-sm text-white rounded-lg transition-all shadow-lg"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Retour à l&apos;accueil
+            Retour aux teams
           </Link>
-
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
-            {/* Logo */}
-            {team.logo?.[0]?.url ? (
-              <img
-                src={team.logo[0].url}
-                alt={team.nom}
-                className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl object-cover shadow-xl"
-              />
-            ) : (
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-xl">
-                <span className="text-4xl sm:text-5xl font-bold text-white">
-                  {team.nom?.[0]?.toUpperCase() || "T"}
-                </span>
-              </div>
-            )}
-
-            {/* Info */}
-            <div className="flex-1">
-              <h1 className="text-3xl sm:text-4xl font-bold mb-2">{team.nom}</h1>
-              <p className="text-gray-300 text-lg mb-4">@{team.slug}</p>
-              {team.description && (
-                <p className="text-gray-400 max-w-2xl">{team.description}</p>
-              )}
-
-              {/* Social Links */}
-              <div className="flex flex-wrap gap-3 mt-4">
-                {team.discord && (
-                  <a
-                    href={team.discord}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z" />
-                    </svg>
-                    Rejoindre Discord
-                  </a>
-                )}
-                {team.website && (
-                  <a
-                    href={team.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    Site web
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex sm:flex-col gap-4 sm:gap-2 text-center sm:text-right">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
-                <p className="text-2xl font-bold">{members.length + 1}</p>
-                <p className="text-sm text-gray-300">Membres</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
-                <p className="text-2xl font-bold">{oeuvres.length}</p>
-                <p className="text-sm text-gray-300">Œuvres</p>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Bouton de personnalisation (visible uniquement pour le propriétaire) */}
+        {isOwner && (
+          <div className="absolute top-4 right-4 z-20">
+            <button
+              onClick={() => setShowCustomizationPanel(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all shadow-lg font-medium"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                />
+              </svg>
+              Personnaliser
+            </button>
+          </div>
+        )}
+
+        {/* Bouton d'abonnement */}
+
+        {/* Bannière personnalisée */}
+        <TeamBanner team={team} />
+
+        {/* Content */}
+        <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Subscribe bar */}
+        <div className="flex justify-end mb-4">
+          <TeamSubscribeButton team={team} currentUser={currentUser} />
+        </div>
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-gray-800">
+        <div className="flex gap-1 mb-6 border-b border-gray-800 overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setActiveTab("about")}
+            className={`px-4 py-3 font-medium transition-all relative ${
+              activeTab === "about" 
+                ? "text-[var(--team-primary)] border-b-2 border-[var(--team-primary)]" 
+                : "text-gray-400 hover:text-gray-300"
+            }`}
+          >
+            À propos
+          </button>
+          <button
+            onClick={() => setActiveTab("annonces")}
+            className={`px-4 py-3 font-medium transition-all relative ${
+              activeTab === "annonces" 
+                ? "text-[var(--team-primary)] border-b-2 border-[var(--team-primary)]" 
+                : "text-gray-400 hover:text-gray-300"
+            }`}
+          >
+            Annonces
+          </button>
           <button
             onClick={() => setActiveTab("oeuvres")}
             className={`px-4 py-3 font-medium transition-all relative ${
-              activeTab === "oeuvres" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
+              activeTab === "oeuvres" 
+                ? "text-[var(--team-primary)] border-b-2 border-[var(--team-primary)]" 
+                : "text-gray-400 hover:text-gray-300"
             }`}
           >
             Œuvres ({oeuvres.length})
-            {activeTab === "oeuvres" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
-            )}
           </button>
           <button
             onClick={() => setActiveTab("members")}
             className={`px-4 py-3 font-medium transition-all relative ${
-              activeTab === "members" ? "text-indigo-400" : "text-gray-400 hover:text-gray-300"
+              activeTab === "members" 
+                ? "text-[var(--team-primary)] border-b-2 border-[var(--team-primary)]" 
+                : "text-gray-400 hover:text-gray-300"
             }`}
           >
             Membres ({members.length + 1})
-            {activeTab === "members" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
-            )}
           </button>
         </div>
 
         {/* Tab Content */}
-        {activeTab === "oeuvres" ? (
+        <div className="team-content">
+        {activeTab === "annonces" ? (
+          <TeamPageAnnonces team={team} isOwner={isOwner} currentUser={currentUser} />
+        ) : activeTab === "about" ? (
+          <div>
+            {/* Description */}
+            {team.description && (
+              <div className="bg-gray-800/30 rounded-xl p-6 mb-6">
+                <h2 className="text-2xl font-bold mb-4 text-[var(--team-primary)]">
+                  Présentation
+                </h2>
+                <p className="text-gray-300 leading-relaxed">{team.description}</p>
+              </div>
+            )}
+
+            {/* Message d'accueil */}
+            {team.messageAccueil && (
+              <div className="bg-gray-800/30 rounded-xl p-6 mb-6">
+                <h2 className="text-2xl font-bold mb-4 text-[var(--team-primary)]">
+                  Message de la team
+                </h2>
+                <div 
+                  className="prose prose-invert max-w-none team-content"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(team.messageAccueil) }}
+                />
+              </div>
+            )}
+
+            {/* Stats rapides */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gray-800/30 rounded-xl p-4 text-center">
+                <p className="text-3xl font-bold text-[var(--team-primary)]">{oeuvres.length}</p>
+                <p className="text-gray-400 text-sm mt-1">Œuvres</p>
+              </div>
+              <div className="bg-gray-800/30 rounded-xl p-4 text-center">
+                <p className="text-3xl font-bold text-[var(--team-primary)]">{members.length + 1}</p>
+                <p className="text-gray-400 text-sm mt-1">Membres</p>
+              </div>
+              <div className="bg-gray-800/30 rounded-xl p-4 text-center">
+                <p className="text-3xl font-bold text-[var(--team-primary)]">
+                  {new Date(team.createdAt).getFullYear()}
+                </p>
+                <p className="text-gray-400 text-sm mt-1">Créée en</p>
+              </div>
+            </div>
+
+            {/* Sections personnalisées */}
+            <TeamCustomSections team={team} />
+          </div>
+        ) : activeTab === "oeuvres" ? (
           <div>
             {oeuvres.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
@@ -211,12 +297,14 @@ export default function TeamDetailPage() {
                     href={`/oeuvre/${oeuvre.documentId}`}
                     className="group bg-gray-800/30 hover:bg-gray-800/50 rounded-xl overflow-hidden transition-all"
                   >
-                    <div className="aspect-[3/4] relative">
+                    <div className="aspect-[3/4] relative overflow-hidden">
                       {oeuvre.couverture?.[0]?.url ? (
-                        <img
+                        <Image
                           src={oeuvre.couverture[0].url}
                           alt={oeuvre.titre}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
@@ -296,7 +384,18 @@ export default function TeamDetailPage() {
             )}
           </div>
         )}
+        </div> {/* End team-content */}
+        </div>
       </div>
-    </div>
+
+      {/* Panneau de personnalisation */}
+      {showCustomizationPanel && (
+        <TeamCustomizationPanel
+          team={team}
+          onUpdate={handleUpdateTeam}
+          onClose={() => setShowCustomizationPanel(false)}
+        />
+      )}
+    </TeamTheme>
   );
 }

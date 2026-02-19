@@ -7,7 +7,7 @@ jest.mock("js-cookie", () => ({
   remove: jest.fn(),
 }));
 
-import DashboardTraducteur from "../src/app/componants/DashboardTraducteur";
+import DashboardTraducteur from "../src/app/components/DashboardTraducteur";
 const Cookies = require("js-cookie");
 
 describe("DashboardTraducteur", () => {

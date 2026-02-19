@@ -6,13 +6,14 @@ export const metadata = {
     title: "Connexion | Trad-Index",
     description:
       "Connectez-vous à Trad-Index pour accéder à vos traductions et gérer vos œuvres.",
-    images: ["/images/og-default.jpg"],
+    images: ["/images/HeroHeader.webp"],
   },
   twitter: {
     card: "summary",
     title: "Connexion | Trad-Index",
     description:
       "Connectez-vous à Trad-Index pour accéder à vos traductions et gérer vos œuvres.",
+    images: ["/images/HeroHeader.webp"],
   },
   alternates: {
     canonical: "https://trad-index.com/connexion",

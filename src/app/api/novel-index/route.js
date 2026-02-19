@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-// Token côté serveur — supporte les deux noms de variable
-const INDEX_API_TOKEN = process.env.INDEX_API_TOKEN || process.env.NEXT_PUBLIC_INDEX_API_TOKEN;
+// Token côté serveur uniquement — ne JAMAIS utiliser NEXT_PUBLIC_ pour les secrets
+const INDEX_API_TOKEN = process.env.INDEX_API_TOKEN;
 const INDEX_API_URL = "https://novel-index-strapi.onrender.com";
 
 // ─── Rate limiting ───

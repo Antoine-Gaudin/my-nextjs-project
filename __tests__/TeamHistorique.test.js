@@ -9,7 +9,7 @@ jest.mock("js-cookie", () => ({
 
 global.fetch = jest.fn();
 
-import TeamHistorique from "../src/app/componants/TeamHistorique";
+import TeamHistorique from "../src/app/components/TeamHistorique";
 
 describe("TeamHistorique", () => {
   const mockTeam = { documentId: "team-1", nom: "TestTeam" };

@@ -1,6 +1,7 @@
 import { permanentRedirect } from "next/navigation";
 
 const API_URL =
+  process.env.API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "https://my-strapi-project-yysn.onrender.com";
 
@@ -14,6 +15,9 @@ export default async function ChapitreRedirect({ params }) {
       `${API_URL}/api/chapitres/${documentid}?populate=oeuvres`,
       { cache: "no-store" }
     );
+    if (!res.ok) {
+      permanentRedirect("/oeuvres");
+    }
     const data = await res.json();
 
     if (data?.data) {

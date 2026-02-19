@@ -1,7 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import NavBar from "./componants/NavBar";
-import Providers from "./componants/Providers";
+import NavBar from "./components/NavBar";
+import Providers from "./components/Providers";
 import Link from "next/link";
 
 // Polices personnalisées
@@ -44,7 +44,7 @@ export const metadata = {
       "Plateforme collaborative d'indexation et de lecture de traductions de light novels, web novels et mangas.",
     images: [
       {
-        url: "/images/og-default.jpg",
+        url: "/images/HeroHeader.webp",
         width: 1200,
         height: 630,
         alt: "Trad-Index — Plateforme d'indexation de traductions",
@@ -56,7 +56,7 @@ export const metadata = {
     title: "Trad-Index",
     description:
       "Plateforme collaborative d'indexation et de lecture de traductions.",
-    images: ["/images/og-default.jpg"],
+    images: ["/images/HeroHeader.webp"],
   },
   robots: {
     index: true,
@@ -91,6 +91,10 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="bg-gray-900 text-white">
+        {/* Skip navigation link for accessibility */}
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg">
+          Aller au contenu principal
+        </a>
         <NavBar />
 
         {/* Spacer pour compenser le header fixe */}
@@ -98,7 +102,7 @@ export default function RootLayout({ children }) {
 
         {/* Main content */}
         <Providers>
-          <main className="min-h-screen">{children}</main>
+          <main id="main-content" className="min-h-screen">{children}</main>
         </Providers>
 
         {/* Footer Moderne */}
@@ -235,15 +239,15 @@ export default function RootLayout({ children }) {
                   © {new Date().getFullYear()} Trad-Index. Tous droits réservés.
                 </p>
                 <div className="flex items-center gap-6">
-                  <span className="text-gray-500 text-sm cursor-default">
+                  <a href="/documentation/mentions-legales" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
                     Mentions légales
-                  </span>
-                  <span className="text-gray-500 text-sm cursor-default">
+                  </a>
+                  <a href="/documentation/confidentialite" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
                     Confidentialité
-                  </span>
-                  <span className="text-gray-500 text-sm cursor-default">
+                  </a>
+                  <a href="mailto:contact@trad-index.com" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
                     Contact
-                  </span>
+                  </a>
                 </div>
               </div>
             </div>

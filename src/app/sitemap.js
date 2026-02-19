@@ -1,4 +1,5 @@
 const API_URL =
+  process.env.API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "https://my-strapi-project-yysn.onrender.com";
 
@@ -39,9 +40,10 @@ export default async function sitemap() {
     },
   ];
 
-  // Récupérer toutes les oeuvres avec leurs chapitres
+  // Récupérer toutes les oeuvres avec leurs chapitres et scans
   let oeuvrePages = [];
   let chapterPages = [];
+  let scanPages = [];
 
   try {
     let allOeuvres = [];
@@ -50,7 +52,7 @@ export default async function sitemap() {
 
     while (hasMore) {
       const res = await fetch(
-        `${API_URL}/api/oeuvres?fields[0]=documentId&fields[1]=titre&fields[2]=updatedAt&populate[chapitres][fields][0]=order&populate[chapitres][fields][1]=updatedAt&pagination[page]=${page}&pagination[pageSize]=100`,
+        `${API_URL}/api/oeuvres?fields[0]=documentId&fields[1]=titre&fields[2]=updatedAt&populate[chapitres][fields][0]=order&populate[chapitres][fields][1]=updatedAt&populate[scans][fields][0]=order&populate[scans][fields][1]=updatedAt&pagination[page]=${page}&pagination[pageSize]=100`,
         { next: { revalidate: 3600 } }
       );
       const data = await res.json();
@@ -85,6 +87,20 @@ export default async function sitemap() {
           priority: 0.6,
         });
       }
+
+      // Pages de scans
+      if (oeuvre.scans) {
+        for (const scan of oeuvre.scans) {
+          scanPages.push({
+            url: `${BASE_URL}/oeuvre/${oeuvre.documentId}/scan/${scan.order}`,
+            lastModified: scan.updatedAt
+              ? new Date(scan.updatedAt)
+              : new Date(),
+            changeFrequency: "monthly",
+            priority: 0.6,
+          });
+        }
+      }
     }
   } catch (err) {
     console.error("Erreur génération sitemap:", err);
@@ -93,12 +109,22 @@ export default async function sitemap() {
   // Récupérer les teams publiques
   let teamPages = [];
   try {
-    const teamsRes = await fetch(
-      `${API_URL}/api/teams?filters[isPublic][$eq]=true&fields[0]=slug&fields[1]=updatedAt&pagination[pageSize]=100`,
-      { next: { revalidate: 3600 } }
-    );
-    const teamsData = await teamsRes.json();
-    teamPages = (teamsData.data || [])
+    let allTeams = [];
+    let teamPage = 1;
+    let hasMoreTeams = true;
+
+    while (hasMoreTeams) {
+      const teamsRes = await fetch(
+        `${API_URL}/api/teams?filters[isPublic][$eq]=true&fields[0]=slug&fields[1]=updatedAt&pagination[page]=${teamPage}&pagination[pageSize]=100`,
+        { next: { revalidate: 3600 } }
+      );
+      const teamsData = await teamsRes.json();
+      allTeams = [...allTeams, ...(teamsData.data || [])];
+      hasMoreTeams = teamsData.meta?.pagination?.page < teamsData.meta?.pagination?.pageCount;
+      teamPage++;
+    }
+
+    teamPages = allTeams
       .filter((t) => t.slug)
       .map((team) => ({
         url: `${BASE_URL}/team/${team.slug}`,
@@ -113,12 +139,23 @@ export default async function sitemap() {
   // Récupérer les traducteurs (rédacteurs)
   let traducteurPages = [];
   try {
-    const usersRes = await fetch(
-      `${API_URL}/api/users?filters[redacteur][$eq]=true&fields[0]=username&fields[1]=updatedAt&pagination[pageSize]=100`,
-      { next: { revalidate: 3600 } }
-    );
-    const usersData = await usersRes.json();
-    traducteurPages = (usersData || [])
+    let allUsers = [];
+    let userPage = 1;
+    let hasMoreUsers = true;
+
+    while (hasMoreUsers) {
+      const usersRes = await fetch(
+        `${API_URL}/api/users?filters[redacteur][$eq]=true&fields[0]=username&fields[1]=updatedAt&pagination[start]=${(userPage - 1) * 100}&pagination[limit]=100`,
+        { next: { revalidate: 3600 } }
+      );
+      const usersData = await usersRes.json();
+      const batch = Array.isArray(usersData) ? usersData : usersData.data || [];
+      allUsers = [...allUsers, ...batch];
+      hasMoreUsers = batch.length === 100;
+      userPage++;
+    }
+
+    traducteurPages = allUsers
       .filter((u) => u.username)
       .map((user) => ({
         url: `${BASE_URL}/traducteur/${encodeURIComponent(user.username)}`,
@@ -134,6 +171,7 @@ export default async function sitemap() {
     ...staticPages,
     ...oeuvrePages,
     ...chapterPages,
+    ...scanPages,
     ...teamPages,
     ...traducteurPages,
   ];

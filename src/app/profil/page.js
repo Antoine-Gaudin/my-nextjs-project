@@ -4,13 +4,16 @@ import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 
-import NavProfil from "../componants/NavProfil";
-import Profil from "../componants/Profil";
-import Parametre from "../componants/Parametres";
-import Editions from "../componants/Editions";
-import Teams from "../componants/Teams";
-import DashboardTraducteur from "../componants/DashboardTraducteur";
-import AdminComparatif from "../componants/AdminComparatif";
+import dynamic from "next/dynamic";
+import NavProfil from "../components/NavProfil";
+import Profil from "../components/Profil";
+
+// Dynamic imports — ces composants lourds ne sont chargés que quand l'onglet est actif
+const Parametre = dynamic(() => import("../components/Parametres"), { ssr: false });
+const Editions = dynamic(() => import("../components/Editions"), { ssr: false });
+const Teams = dynamic(() => import("../components/Teams"), { ssr: false });
+const DashboardTraducteur = dynamic(() => import("../components/DashboardTraducteur"), { ssr: false });
+const AdminComparatif = dynamic(() => import("../components/AdminComparatif"), { ssr: false });
 
 export default function ProfilPage() {
   const [user, setUser] = useState(null);

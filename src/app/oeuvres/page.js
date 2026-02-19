@@ -3,8 +3,10 @@
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import FicheOeuvre from "../componants/FicheOeuvre";
-import BannerCarousel from "../componants/BannerCarousel";
+import dynamic from "next/dynamic";
+import BannerCarousel from "../components/BannerCarousel";
+
+const FicheOeuvre = dynamic(() => import("../components/FicheOeuvre"), { ssr: false });
 
 function OeuvresContent() {
   const [oeuvres, setOeuvres] = useState([]);
@@ -46,7 +48,7 @@ function OeuvresContent() {
   useEffect(() => {
     const fetchOeuvres = async () => {
       setIsLoading(true);
-      const url = `/api/proxy/oeuvres?populate=couverture`;
+      const url = `/api/proxy/oeuvres?populate[couverture][fields][0]=url&fields[0]=titre&fields[1]=documentId&fields[2]=type&fields[3]=categorie&fields[4]=etat&fields[5]=auteur&fields[6]=annee&fields[7]=synopsis&fields[8]=createdAt&fields[9]=updatedAt&pagination[pageSize]=100`;
 
       try {
         const res = await fetch(url);

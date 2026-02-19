@@ -6,14 +6,14 @@ export const metadata = {
     title: "Catalogue des œuvres | Trad-Index",
     description:
       "Parcourez le catalogue complet des traductions françaises de light novels, web novels, mangas et manhwas.",
-    images: ["/images/og-default.jpg"],
+    images: ["/images/HeroHeader.webp"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Catalogue des œuvres | Trad-Index",
     description:
       "Parcourez le catalogue complet des traductions françaises de light novels, web novels, mangas et manhwas.",
-    images: ["/images/og-default.jpg"],
+    images: ["/images/HeroHeader.webp"],
   },
   alternates: {
     canonical: "https://trad-index.com/oeuvres",

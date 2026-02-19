@@ -6,14 +6,14 @@ export const metadata = {
     title: "Documentation éditeur | Trad-Index",
     description:
       "Guide complet pour les éditeurs et traducteurs sur Trad-Index.",
-    images: ["/images/og-default.jpg"],
+    images: ["/images/HeroHeader.webp"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Documentation éditeur | Trad-Index",
     description:
       "Guide complet pour les éditeurs et traducteurs sur Trad-Index.",
-    images: ["/images/og-default.jpg"],
+    images: ["/images/HeroHeader.webp"],
   },
   alternates: {
     canonical: "https://trad-index.com/documentation/editeur",

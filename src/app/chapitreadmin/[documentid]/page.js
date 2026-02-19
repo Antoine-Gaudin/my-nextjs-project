@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Cookies from "js-cookie";
-import AjouterChapitre from "../../componants/AjouterChapitre"; // Composant pour ajouter un chapitre
-import TéléchargerChapitre from "../../componants/TéléchargerChapitre"; // Composant pour télécharger un PDF
+import AjouterChapitre from "../../components/AjouterChapitre"; // Composant pour ajouter un chapitre
+import TéléchargerChapitre from "../../components/TéléchargerChapitre"; // Composant pour télécharger un PDF
+import AjouterScan from "../../components/AjouterScan"; // Composant pour ajouter un scan
 
 const ChapitreAdmin = () => {
   const router = useRouter();
@@ -16,7 +17,10 @@ const ChapitreAdmin = () => {
   const [filterType, setFilterType] = useState("all"); // Valeur par défaut : tout afficher
   const [showAjouterModal, setShowAjouterModal] = useState(false);
   const [showTéléchargerModal, setShowTéléchargerModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scans, setScans] = useState([]);
   const [editingOrder, setEditingOrder] = useState({}); // Stocke les valeurs d'ordre en cours d'édition
+  const [refreshKey, setRefreshKey] = useState(0); // Pour forcer le re-fetch après upload
   const apiUrl = process.env.NEXT_PUBLIC_API_URL; 
   useEffect(() => {
     const fetchOeuvreEtChapitres = async () => {
@@ -54,6 +58,23 @@ const ChapitreAdmin = () => {
         setChapitres(sortedChapitres);
         setFilteredChapitres(sortedChapitres); // Par défaut, tous les chapitres sont affichés
         setLoading(false);
+
+        // Fetch scans séparément (uniquement pour les types scan/manga/manhua/manhwa)
+        const scanTypes = ['scan', 'manga', 'manhua', 'manhwa'];
+        if (scanTypes.includes(data.data?.type?.toLowerCase())) {
+          try {
+            const scanRes = await fetch(
+              `/api/proxy/scans?filters[oeuvres][documentId][$eq]=${documentid}&sort=order:desc&populate[pages][populate]=image`,
+              { headers: { Authorization: `Bearer ${jwt}` } }
+            );
+            if (scanRes.ok) {
+              const scanData = await scanRes.json();
+              setScans(scanData.data || []);
+            }
+          } catch (err) {
+            console.error("Erreur scans :", err);
+          }
+        }
       } catch (error) {
         console.error("Erreur lors de la récupération des données :", error);
         router.push("/connexion");
@@ -61,7 +82,7 @@ const ChapitreAdmin = () => {
     };
 
     fetchOeuvreEtChapitres();
-  }, [documentid, router]);
+  }, [documentid, router, refreshKey]);
 
   const handleOrderChange = (chapterDocumentId, value) => {
     setEditingOrder((prev) => ({
@@ -152,8 +173,9 @@ const ChapitreAdmin = () => {
 
   const handleRedirectToChapter = (chapitre) => {
     if (chapitre.pdf) {
-      // Redirige vers une page pour afficher le PDF
-      window.open(`${apiUrl}${chapitre.pdf}`, "_blank");
+      // Redirige vers le PDF — l'URL Cloudinary est déjà absolue
+      const pdfUrl = chapitre.pdf.startsWith('http') ? chapitre.pdf : `${apiUrl}${chapitre.pdf}`;
+      window.open(pdfUrl, "_blank");
     } else {
       // Redirige vers la page de contenu texte
       router.push(`/mochapitre/${chapitre.documentId}`);
@@ -168,6 +190,28 @@ const ChapitreAdmin = () => {
       setFilteredChapitres(chapitres.filter((chapitre) => chapitre.texte && chapitre.texte.length > 0));
     } else {
       setFilteredChapitres(chapitres);
+    }
+  };
+
+  // ─── Suppression d'un scan ───
+  const deleteScan = async (scanDocumentId) => {
+    const jwt = Cookies.get("jwt");
+    if (!confirm("Voulez-vous vraiment supprimer ce scan ?")) return;
+
+    try {
+      const res = await fetch(`/api/proxy/scans/${scanDocumentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+
+      if (!res.ok) {
+        alert("Erreur lors de la suppression du scan.");
+        return;
+      }
+
+      setScans((prev) => prev.filter((s) => s.documentId !== scanDocumentId));
+    } catch (error) {
+      console.error("Erreur suppression scan :", error);
     }
   };
 
@@ -267,6 +311,58 @@ const ChapitreAdmin = () => {
         </div>
       </div>
 
+      {/* ─── Section Scans (séparée des chapitres) ─── */}
+      {['scan', 'manga', 'manhua', 'manhwa'].includes(oeuvre?.type?.toLowerCase()) && (
+      <div className="w-full max-w-6xl bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
+        <h1 className="text-3xl font-bold text-center mb-4">
+          Gestion des Scans
+        </h1>
+
+        <div className="flex justify-between items-center mt-6">
+          <button
+            onClick={() => setShowScanModal(true)}
+            className="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-400 transition"
+          >
+            Ajouter un Scan
+          </button>
+          <span className="text-gray-400">{scans.length} scan{scans.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        <div className="mt-6">
+          <h2 className="text-2xl font-bold mb-4">Scans</h2>
+          {scans.length > 0 ? (
+            <ul className="space-y-4">
+              {scans.map((scan, index) => (
+                <li key={scan.documentId || index} className="bg-gray-700 p-4 rounded shadow">
+                  <h3 className="text-xl font-bold">{scan.titre || "Titre non spécifié"}</h3>
+                  <p className="text-gray-400">Tome : {scan.tome || "Non spécifié"}</p>
+                  <p className="text-gray-400">Ordre : {scan.order || "Non spécifié"}</p>
+                  <p className="text-gray-400">Pages : {scan.pages?.length || 0}</p>
+
+                  <div className="mt-4 flex space-x-2">
+                    <button
+                      onClick={() => router.push(`/oeuvre/${documentid}/scan/${scan.order}`)}
+                      className="px-3 py-1 bg-pink-500 text-white rounded hover:bg-pink-400 transition"
+                    >
+                      Voir Scan
+                    </button>
+                    <button
+                      onClick={() => deleteScan(scan.documentId)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-400 transition"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400">Aucun scan trouvé pour cette œuvre.</p>
+          )}
+        </div>
+      </div>
+      )}
+
       {showAjouterModal && (
         <AjouterChapitre
           oeuvreId={documentid}
@@ -280,7 +376,21 @@ const ChapitreAdmin = () => {
         <TéléchargerChapitre
           oeuvreId={documentid}
           onClose={() => setShowTéléchargerModal(false)}
-          onChapitreUploaded={() => setShowTéléchargerModal(false)}
+          onChapitreUploaded={() => {
+            setShowTéléchargerModal(false);
+            setRefreshKey((k) => k + 1); // Re-fetch la liste des chapitres
+          }}
+        />
+      )}
+
+      {showScanModal && ['scan', 'manga', 'manhua', 'manhwa'].includes(oeuvre?.type?.toLowerCase()) && (
+        <AjouterScan
+          oeuvreId={documentid}
+          onClose={() => setShowScanModal(false)}
+          onScanAdded={() => {
+            setShowScanModal(false);
+            setRefreshKey((k) => k + 1); // Re-fetch scans
+          }}
         />
       )}
     </div>

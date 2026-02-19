@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "axios";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 
@@ -74,18 +73,25 @@ export default function AuthPage() {
     resetFeedback();
 
     try {
-      const response = await axios.post(`/api/proxy/auth/local`, {
-        identifier,
-        password: loginPassword,
+      const response = await fetch(`/api/proxy/auth/local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password: loginPassword }),
       });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error?.message || "Erreur de connexion");
 
-      const jwt = response.data.jwt;
+      const jwt = data.jwt;
       Cookies.set("jwt", jwt, { expires: 7, sameSite: "strict", secure: window.location.protocol === "https:" });
 
-      const userInfoResponse = await axios.get(`/api/proxy/users/me`, {
+      const userInfoResponse = await fetch(`/api/proxy/users/me`, {
         headers: { Authorization: `Bearer ${jwt}` },
       });
-      Cookies.set("userInfo", JSON.stringify(userInfoResponse.data), { expires: 7, sameSite: "strict", secure: window.location.protocol === "https:" });
+      const userInfoData = await userInfoResponse.json();
+      Cookies.set("userInfo", JSON.stringify(userInfoData), { expires: 7, sameSite: "strict", secure: window.location.protocol === "https:" });
+
+      // Notifier la NavBar du changement d'auth
+      window.dispatchEvent(new Event("auth-change"));
 
       router.push("/profil");
     } catch (err) {
@@ -114,27 +120,38 @@ export default function AuthPage() {
     }
 
     try {
-      await axios.post(`/api/proxy/auth/local/register`, {
-        username,
-        email,
-        password: regPassword,
+      await fetch(`/api/proxy/auth/local/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password: regPassword }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const errData = await res.json();
+          throw { response: { data: errData } };
+        }
       });
 
       setSuccess("Compte créé avec succès ! Connexion en cours...");
 
       // Auto-login after registration
       try {
-        const loginRes = await axios.post(`/api/proxy/auth/local`, {
-          identifier: email,
-          password: regPassword,
+        const loginRes = await fetch(`/api/proxy/auth/local`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: email, password: regPassword }),
         });
-        const jwt = loginRes.data.jwt;
+        const loginData = await loginRes.json();
+        const jwt = loginData.jwt;
         Cookies.set("jwt", jwt, { expires: 7, sameSite: "strict", secure: window.location.protocol === "https:" });
 
-        const userInfoRes = await axios.get(`/api/proxy/users/me`, {
+        const userInfoRes = await fetch(`/api/proxy/users/me`, {
           headers: { Authorization: `Bearer ${jwt}` },
         });
-        Cookies.set("userInfo", JSON.stringify(userInfoRes.data), { expires: 7, sameSite: "strict", secure: window.location.protocol === "https:" });
+        const userInfoData = await userInfoRes.json();
+        Cookies.set("userInfo", JSON.stringify(userInfoData), { expires: 7, sameSite: "strict", secure: window.location.protocol === "https:" });
+
+        // Notifier la NavBar du changement d'auth
+        window.dispatchEvent(new Event("auth-change"));
 
         setTimeout(() => router.push("/profil"), 1500);
       } catch {
