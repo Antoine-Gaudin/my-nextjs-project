@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import TeamAnnonces from "./TeamAnnonces";
 import BannerCarousel from "./BannerCarousel";
 
 export default function FicheOeuvre({ oeuvre, onClose }) {
@@ -525,22 +524,6 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
                 )}
               </button>
-              <button
-                className={`px-5 py-3 font-medium text-sm transition-all duration-300 relative flex items-center gap-2 ${
-                  activeTab === "annonces" 
-                    ? "text-indigo-400" 
-                    : "text-gray-400 hover:text-gray-300"
-                }`}
-                onClick={() => setActiveTab("annonces")}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                </svg>
-                Annonces
-                {activeTab === "annonces" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
-                )}
-              </button>
               {isScanType && scans.length > 0 && (
                 <button
                   className={`px-5 py-3 font-medium text-sm transition-all duration-300 relative flex items-center gap-2 ${
@@ -796,11 +779,6 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
                   </div>
                 )}
               </div>
-            )}
-
-            {/* Onglet Annonces */}
-            {activeTab === "annonces" && (
-              <TeamAnnonces oeuvreId={oeuvre?.documentId} />
             )}
 
             {/* Onglet Scans */}
