@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import Cookies from "js-cookie";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 
@@ -18,7 +20,71 @@ const TYPE_COLORS = {
   amber: { bg: "bg-amber-600/20", border: "border-amber-600/30", text: "text-amber-400" },
 };
 
-export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
+/* ─── LECTURE INTELLIGENTE : Classification du texte ─── */
+function classifyLine(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return "empty";
+  if (/^\[.+\]$/.test(trimmed)) return "game-badge";
+  if (/^["«»\u201C\u201D\u00AB\u00BB]/.test(trimmed)) return "dialogue";
+  if (/^[''\u2018\u2019]/.test(trimmed) && /[''\u2018\u2019]$/.test(trimmed)) return "thought";
+  if (
+    trimmed.length < 40 &&
+    (/^([A-ZÀ-Úa-zà-ú][a-zà-ú]*[.!]\s*){2,}$/.test(trimmed) ||
+      /^[A-ZÀ-ÚÉÈ\s!?~*─—]+$/.test(trimmed) ||
+      (/!{1,}$/.test(trimmed) && trimmed.length < 25) ||
+      /^\.{3,}$/.test(trimmed) ||
+      /^─+\s*!?$/.test(trimmed))
+  ) return "sfx";
+  if (trimmed.length < 12 && /^[A-ZÀ-Úa-zà-ú]+[.!]+$/.test(trimmed)) return "sfx";
+  if (trimmed.length < 15 && /^[.…!?─—]+$/.test(trimmed)) return "sfx";
+  if (trimmed.length < 100 && /\?$/.test(trimmed) && !/^["«»\u201C\u201D]/.test(trimmed)) return "thought";
+  return "narration";
+}
+
+function parseMessage(text) {
+  if (!text) return [];
+  const lines = text.split("\n");
+  const blocks = [];
+  let consecutiveEmpties = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) { consecutiveEmpties++; continue; }
+    if (consecutiveEmpties >= 2) blocks.push({ type: "scene-break", text: "" });
+    else if (consecutiveEmpties === 1 && blocks.length > 0) blocks.push({ type: "spacing", text: "" });
+    consecutiveEmpties = 0;
+    blocks.push({ type: classifyLine(trimmed), text: trimmed });
+  }
+  return blocks;
+}
+
+function SmartBlock({ block, idx }) {
+  switch (block.type) {
+    case "scene-break": return <div key={idx} className="scene-break" aria-hidden="true"><span>✦</span></div>;
+    case "spacing": return <div key={idx} className="h-3" />;
+    case "game-badge": return <div key={idx} className="game-badge">{block.text}</div>;
+    case "dialogue": return <p key={idx} className="dialogue">{block.text}</p>;
+    case "sfx": return <p key={idx} className="sfx">{block.text}</p>;
+    case "thought": return <p key={idx} className="thought">{block.text}</p>;
+    default: return <p key={idx} className="narration">{block.text}</p>;
+  }
+}
+
+function SmartMessage({ message }) {
+  const blocks = useMemo(() => parseMessage(message), [message]);
+  if (blocks.length === 0) return null;
+  return (
+    <div className="chapter-content">
+      <div className="smart-content">
+        {blocks.map((block, i) => <SmartBlock key={i} block={block} idx={i} />)}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPOSANT PRINCIPAL
+   ═══════════════════════════════════════════════════════════════ */
+export default function TeamPageAnnonces({ team, isOwner, currentUser, oeuvres = [] }) {
   const [annonces, setAnnonces] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -26,15 +92,20 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
   const [newMessage, setNewMessage] = useState("");
   const [newType, setNewType] = useState("info");
   const [newPinned, setNewPinned] = useState(false);
+  const [selectedOeuvre, setSelectedOeuvre] = useState(null);
+  const [showOeuvreSelector, setShowOeuvreSelector] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState(null); // documentId to confirm delete
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [expandedAnnonce, setExpandedAnnonce] = useState(null);
+  const [filterType, setFilterType] = useState("all");
+  const [filterOeuvre, setFilterOeuvre] = useState("all");
 
   const fetchAnnonces = useCallback(async () => {
     try {
       const res = await fetch(
-        `/api/proxy/team-annonces?filters[team][documentId][$eq]=${team.documentId}&populate=auteur&sort=isPinned:desc,createdAt:desc&pagination[pageSize]=50`
+        `/api/proxy/team-annonces?filters[team][documentId][$eq]=${team.documentId}&populate=auteur&populate=oeuvre.couverture&sort=isPinned:desc,createdAt:desc&pagination[pageSize]=50`
       );
       const data = await res.json();
       setAnnonces(data.data || []);
@@ -49,6 +120,23 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
     fetchAnnonces();
   }, [fetchAnnonces]);
 
+  /* Filtered annonces */
+  const filteredAnnonces = useMemo(() => {
+    let result = annonces;
+    if (filterType !== "all") result = result.filter((a) => a.type === filterType);
+    if (filterOeuvre !== "all") {
+      if (filterOeuvre === "none") result = result.filter((a) => !a.oeuvre);
+      else result = result.filter((a) => a.oeuvre?.documentId === filterOeuvre);
+    }
+    return result;
+  }, [annonces, filterType, filterOeuvre]);
+
+  const linkedOeuvres = useMemo(() => {
+    const map = new Map();
+    annonces.forEach((a) => { if (a.oeuvre?.documentId) map.set(a.oeuvre.documentId, a.oeuvre); });
+    return Array.from(map.values());
+  }, [annonces]);
+
   const handlePost = async () => {
     if (!newMessage.trim()) return;
     setIsSending(true);
@@ -59,22 +147,23 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
     if (!jwt) { setError("Vous devez être connecté"); setIsSending(false); return; }
 
     try {
+      const postData = {
+        titre: newTitre.trim() || null,
+        message: newMessage.trim(),
+        type: newType,
+        isPinned: newPinned,
+        team: team.documentId,
+        auteur: currentUser.id,
+      };
+      if (selectedOeuvre) postData.oeuvre = selectedOeuvre.documentId;
+
       const res = await fetch("/api/proxy/team-annonces", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${jwt}`,
         },
-        body: JSON.stringify({
-          data: {
-            titre: newTitre.trim() || null,
-            message: newMessage.trim(),
-            type: newType,
-            isPinned: newPinned,
-            team: team.documentId,
-            auteur: currentUser.id,
-          },
-        }),
+        body: JSON.stringify({ data: postData }),
       });
 
       if (!res.ok) throw new Error("Erreur lors de l'envoi");
@@ -83,6 +172,8 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
       setNewMessage("");
       setNewType("info");
       setNewPinned(false);
+      setSelectedOeuvre(null);
+      setShowOeuvreSelector(false);
       setShowForm(false);
       setSuccess("Annonce publiée !");
       setTimeout(() => setSuccess(""), 3000);
@@ -167,8 +258,8 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
 
   return (
     <div className="space-y-6">
-      {/* Header + bouton nouvelle annonce */}
-      <div className="flex items-center justify-between">
+      {/* ── Header + bouton nouvelle annonce ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-white">Annonces</h2>
           <p className="text-gray-400 text-sm mt-1">
@@ -188,9 +279,9 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
         )}
       </div>
 
-      {/* Messages de feedback */}
+      {/* ── Feedback ── */}
       {success && (
-        <div className="px-4 py-3 bg-green-600/20 border border-green-600/30 rounded-xl text-green-400 text-sm flex items-center gap-2">
+        <div className="px-4 py-3 bg-green-600/20 border border-green-600/30 rounded-xl text-green-400 text-sm flex items-center gap-2 animate-slide-in">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
           </svg>
@@ -198,9 +289,11 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
         </div>
       )}
 
-      {/* Formulaire de création */}
+      {/* ════════════════════════════════════════════════════════════
+         FORMULAIRE DE CRÉATION
+         ════════════════════════════════════════════════════════════ */}
       {showForm && isOwner && (
-        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-6 space-y-4">
+        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-6 space-y-4 animate-slide-in">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,6 +339,102 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
             </div>
           </div>
 
+          {/* ── Sélecteur d'œuvre ── */}
+          {oeuvres.length > 0 && (
+            <div>
+              <label className="block text-gray-400 text-xs font-medium mb-2">
+                Lier à une œuvre (optionnel)
+              </label>
+
+              {selectedOeuvre ? (
+                <div className="flex items-center gap-3 p-3 bg-indigo-600/10 border border-indigo-600/30 rounded-xl">
+                  <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 relative bg-gray-800">
+                    {selectedOeuvre.couverture?.[0]?.url ? (
+                      <Image
+                        src={selectedOeuvre.couverture[0].url}
+                        alt={selectedOeuvre.titre}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-indigo-700 to-purple-700 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium text-sm truncate">{selectedOeuvre.titre}</p>
+                    <p className="text-indigo-400 text-xs">L&apos;annonce apparaîtra aussi sur la fiche de l&apos;œuvre</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOeuvre(null)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-600/10 transition-colors"
+                    title="Retirer l'œuvre"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowOeuvreSelector(!showOeuvreSelector)}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-gray-900/50 border border-gray-700/50 hover:border-gray-600/50 rounded-xl text-left transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  <span className="text-gray-400 text-sm">Sélectionner une œuvre...</span>
+                  <svg className={`w-4 h-4 text-gray-500 ml-auto transition-transform ${showOeuvreSelector ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              )}
+
+              {showOeuvreSelector && !selectedOeuvre && (
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto scrollbar-hide p-1">
+                  {oeuvres.map((oeuvre) => (
+                    <button
+                      key={oeuvre.documentId}
+                      type="button"
+                      onClick={() => {
+                        setSelectedOeuvre(oeuvre);
+                        setShowOeuvreSelector(false);
+                      }}
+                      className="group flex flex-col items-center gap-2 p-3 bg-gray-900/40 hover:bg-gray-800/60 border border-gray-700/40 hover:border-[var(--team-primary,#6366f1)]/50 rounded-xl transition-all"
+                    >
+                      <div className="w-full aspect-[3/4] rounded-lg overflow-hidden relative bg-gray-800">
+                        {oeuvre.couverture?.[0]?.url ? (
+                          <Image
+                            src={oeuvre.couverture[0].url}
+                            alt={oeuvre.titre}
+                            fill
+                            sizes="120px"
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-300 font-medium text-center line-clamp-2 group-hover:text-white transition-colors">
+                        {oeuvre.titre}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Titre (optionnel) */}
           <div>
             <label className="block text-gray-400 text-xs font-medium mb-1">Titre (optionnel)</label>
@@ -264,17 +453,32 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
             <textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Écrire votre annonce..."
-              rows={4}
+              placeholder={"Écrire votre annonce...\n\nAstuce : les dialogues (\"...\"), pensées (?), et effets spéciaux sont automatiquement stylisés !"}
+              rows={6}
               className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700/50 focus:border-indigo-600/50 rounded-xl text-white placeholder-gray-500 outline-none resize-none text-sm transition-colors"
             />
-            <p className="text-gray-600 text-xs mt-1 text-right">{newMessage.length}/2000</p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-gray-600 text-xs">
+                💡 Lecture intelligente — dialogues, pensées et effets automatiquement stylisés
+              </p>
+              <p className="text-gray-600 text-xs">{newMessage.length}/2000</p>
+            </div>
           </div>
+
+          {/* Prévisualisation */}
+          {newMessage.trim() && (
+            <div>
+              <label className="block text-gray-400 text-xs font-medium mb-2">Aperçu</label>
+              <div className="bg-gray-900/60 border border-gray-700/30 rounded-xl p-4">
+                <SmartMessage message={newMessage} />
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setSelectedOeuvre(null); setShowOeuvreSelector(false); }}
               className="px-4 py-2 text-gray-400 hover:text-gray-300 text-sm transition-colors"
             >
               Annuler
@@ -294,7 +498,7 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
-                  Publier
+                  Publier{selectedOeuvre ? ` sur ${selectedOeuvre.titre}` : ""}
                 </>
               )}
             </button>
@@ -302,8 +506,71 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
         </div>
       )}
 
-      {/* Fil d'annonces */}
-      {annonces.length === 0 ? (
+      {/* ════════════════════════════════════════════════════════════
+         FILTRES
+         ════════════════════════════════════════════════════════════ */}
+      {annonces.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1 overflow-x-auto scrollbar-hide bg-gray-800/40 rounded-xl p-1">
+            <button
+              onClick={() => setFilterType("all")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                filterType === "all"
+                  ? "bg-[var(--team-primary,#6366f1)] text-white"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              Tout ({annonces.length})
+            </button>
+            {Object.entries(TYPE_CONFIG).map(([key, val]) => {
+              const count = annonces.filter((a) => a.type === key).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setFilterType(key)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    filterType === key
+                      ? "bg-[var(--team-primary,#6366f1)] text-white"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                >
+                  {val.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {linkedOeuvres.length > 0 && (
+            <select
+              value={filterOeuvre}
+              onChange={(e) => setFilterOeuvre(e.target.value)}
+              className="px-3 py-1.5 bg-gray-800/40 border border-gray-700/50 rounded-xl text-gray-300 text-xs outline-none focus:border-indigo-600/50"
+            >
+              <option value="all">Toutes les œuvres</option>
+              <option value="none">Annonce générale</option>
+              {linkedOeuvres.map((o) => (
+                <option key={o.documentId} value={o.documentId}>{o.titre}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+         FIL D'ANNONCES
+         ════════════════════════════════════════════════════════════ */}
+      {filteredAnnonces.length === 0 && annonces.length > 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-400">Aucune annonce ne correspond aux filtres</p>
+          <button
+            onClick={() => { setFilterType("all"); setFilterOeuvre("all"); }}
+            className="mt-2 text-indigo-400 hover:text-indigo-300 text-sm"
+          >
+            Réinitialiser les filtres
+          </button>
+        </div>
+      ) : filteredAnnonces.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 flex items-center justify-center">
             <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -314,98 +581,140 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
           <p className="text-gray-600 text-sm mt-1">
             {isOwner
               ? "Publiez votre première annonce pour vos abonnés !"
-              : "Cette team n'a pas encore publié d'annonce"}
+              : "Cette team n&apos;a pas encore publié d&apos;annonce"}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {annonces.map((annonce) => {
+          {filteredAnnonces.map((annonce) => {
             const typeConf = TYPE_CONFIG[annonce.type] || TYPE_CONFIG.info;
             const colors = TYPE_COLORS[typeConf.color];
             const canDelete = currentUser && (
               annonce.auteur?.id === currentUser.id || isOwner
             );
+            const isExpanded = expandedAnnonce === annonce.documentId;
+            const isLong = (annonce.message || "").length > 300;
+            const coverUrl = annonce.oeuvre?.couverture?.[0]?.url
+              || (Array.isArray(annonce.oeuvre?.couverture) ? annonce.oeuvre?.couverture?.[0]?.url : null);
 
             return (
               <div
                 key={annonce.documentId}
-                className={`relative rounded-2xl p-5 transition-colors ${
+                className={`relative rounded-2xl overflow-hidden transition-colors ${
                   annonce.isPinned
                     ? "bg-amber-900/10 border border-amber-600/30"
                     : "bg-gray-800/30 border border-gray-700/40 hover:border-gray-700/60"
                 }`}
               >
-                {/* Épinglé badge */}
-                {annonce.isPinned && (
-                  <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-amber-600/20 rounded-full">
-                    <span className="text-xs">📌</span>
-                    <span className="text-amber-400 text-xs font-medium">Épinglé</span>
-                  </div>
+                {/* Bandeau œuvre lié */}
+                {annonce.oeuvre && (
+                  <Link
+                    href={`/oeuvre/${annonce.oeuvre.documentId}`}
+                    className="flex items-center gap-3 px-5 py-2.5 bg-indigo-600/10 border-b border-indigo-600/20 hover:bg-indigo-600/15 transition-colors"
+                  >
+                    {coverUrl ? (
+                      <div className="w-6 h-8 rounded overflow-hidden relative flex-shrink-0">
+                        <Image src={coverUrl} alt="" fill sizes="24px" className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-8 rounded bg-indigo-600/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                      </div>
+                    )}
+                    <span className="text-indigo-400 text-xs font-medium truncate">
+                      {annonce.oeuvre.titre}
+                    </span>
+                    <svg className="w-3 h-3 text-indigo-500 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
                 )}
 
-                {/* Header */}
-                <div className="flex items-start gap-3 mb-3">
-                  {/* Type badge */}
-                  <div className={`w-10 h-10 rounded-xl ${colors.bg} ${colors.border} border flex items-center justify-center flex-shrink-0`}>
-                    <svg className={`w-5 h-5 ${colors.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={typeConf.icon} />
-                    </svg>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2 py-0.5 ${colors.bg} ${colors.text} text-xs font-medium rounded-full`}>
-                        {typeConf.label}
-                      </span>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-gray-400 text-sm">
-                        {annonce.auteur?.username || team.nom}
-                      </span>
-                    </div>
-                    <p className="text-gray-600 text-xs mt-0.5">
-                      {formatDate(annonce.createdAt)}
-                    </p>
-                  </div>
-
-                  {/* Actions owner */}
-                  {canDelete && (
-                    <div className="flex items-center gap-1">
-                      {isOwner && (
-                        <button
-                          onClick={() => handleTogglePin(annonce)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            annonce.isPinned
-                              ? "text-amber-400 hover:bg-amber-600/10"
-                              : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/50"
-                          }`}
-                          title={annonce.isPinned ? "Désépingler" : "Épingler"}
-                        >
-                          <svg className="w-4 h-4" fill={annonce.isPinned ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(annonce.documentId)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-600/10 transition-colors"
-                        title="Supprimer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                <div className="p-5">
+                  {/* Épinglé badge */}
+                  {annonce.isPinned && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-amber-600/20 rounded-full z-10">
+                      <span className="text-xs">📌</span>
+                      <span className="text-amber-400 text-xs font-medium">Épinglé</span>
                     </div>
                   )}
-                </div>
 
-                {/* Titre */}
-                {annonce.titre && (
-                  <h3 className="text-white font-semibold text-lg mb-2">{annonce.titre}</h3>
-                )}
+                  {/* Header */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className={`w-10 h-10 rounded-xl ${colors.bg} ${colors.border} border flex items-center justify-center flex-shrink-0`}>
+                      <svg className={`w-5 h-5 ${colors.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={typeConf.icon} />
+                      </svg>
+                    </div>
 
-                {/* Message */}
-                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                  {annonce.message}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 ${colors.bg} ${colors.text} text-xs font-medium rounded-full`}>
+                          {typeConf.label}
+                        </span>
+                        <span className="text-gray-600">•</span>
+                        <span className="text-gray-400 text-sm">
+                          {annonce.auteur?.username || team.nom}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-xs mt-0.5">
+                        {formatDate(annonce.createdAt)}
+                      </p>
+                    </div>
+
+                    {canDelete && (
+                      <div className="flex items-center gap-1">
+                        {isOwner && (
+                          <button
+                            onClick={() => handleTogglePin(annonce)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              annonce.isPinned
+                                ? "text-amber-400 hover:bg-amber-600/10"
+                                : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/50"
+                            }`}
+                            title={annonce.isPinned ? "Désépingler" : "Épingler"}
+                          >
+                            <svg className="w-4 h-4" fill={annonce.isPinned ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(annonce.documentId)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-600/10 transition-colors"
+                          title="Supprimer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Titre */}
+                  {annonce.titre && (
+                    <h3 className="text-white font-semibold text-lg mb-3">{annonce.titre}</h3>
+                  )}
+
+                  {/* Message — Lecture Intelligente */}
+                  <div className={`${isLong && !isExpanded ? "max-h-48 overflow-hidden relative" : ""}`}>
+                    <SmartMessage message={annonce.message} />
+                    {isLong && !isExpanded && (
+                      <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-gray-900/90 to-transparent" />
+                    )}
+                  </div>
+
+                  {isLong && (
+                    <button
+                      onClick={() => setExpandedAnnonce(isExpanded ? null : annonce.documentId)}
+                      className="mt-2 text-sm text-[var(--team-primary,#6366f1)] hover:underline font-medium"
+                    >
+                      {isExpanded ? "Voir moins ▲" : "Lire la suite ▼"}
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -413,7 +722,7 @@ export default function TeamPageAnnonces({ team, isOwner, currentUser }) {
         </div>
       )}
 
-      {/* Confirm dialog for delete */}
+      {/* ── Confirm dialog ── */}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Supprimer l'annonce"

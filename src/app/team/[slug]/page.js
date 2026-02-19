@@ -233,7 +233,7 @@ export default function TeamDetailPage() {
         {/* Tab Content */}
         <div className="team-content">
         {activeTab === "annonces" ? (
-          <TeamPageAnnonces team={team} isOwner={isOwner} currentUser={currentUser} />
+          <TeamPageAnnonces team={team} isOwner={isOwner} currentUser={currentUser} oeuvres={oeuvres} />
         ) : activeTab === "about" ? (
           <div>
             {/* Description */}

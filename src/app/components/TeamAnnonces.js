@@ -1,8 +1,69 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Cookies from "js-cookie";
 import ConfirmDialog from "./ConfirmDialog";
+
+/* ─── LECTURE INTELLIGENTE ─── */
+function classifyLine(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return "empty";
+  if (/^\[.+\]$/.test(trimmed)) return "game-badge";
+  if (/^["«»\u201C\u201D\u00AB\u00BB]/.test(trimmed)) return "dialogue";
+  if (/^[''\u2018\u2019]/.test(trimmed) && /[''\u2018\u2019]$/.test(trimmed)) return "thought";
+  if (
+    trimmed.length < 40 &&
+    (/^([A-ZÀ-Úa-zà-ú][a-zà-ú]*[.!]\s*){2,}$/.test(trimmed) ||
+      /^[A-ZÀ-ÚÉÈ\s!?~*─—]+$/.test(trimmed) ||
+      (/!{1,}$/.test(trimmed) && trimmed.length < 25) ||
+      /^\.{3,}$/.test(trimmed) ||
+      /^─+\s*!?$/.test(trimmed))
+  ) return "sfx";
+  if (trimmed.length < 12 && /^[A-ZÀ-Úa-zà-ú]+[.!]+$/.test(trimmed)) return "sfx";
+  if (trimmed.length < 15 && /^[.…!?─—]+$/.test(trimmed)) return "sfx";
+  if (trimmed.length < 100 && /\?$/.test(trimmed) && !/^["«»\u201C\u201D]/.test(trimmed)) return "thought";
+  return "narration";
+}
+
+function parseMessage(text) {
+  if (!text) return [];
+  const lines = text.split("\n");
+  const blocks = [];
+  let consecutiveEmpties = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) { consecutiveEmpties++; continue; }
+    if (consecutiveEmpties >= 2) blocks.push({ type: "scene-break", text: "" });
+    else if (consecutiveEmpties === 1 && blocks.length > 0) blocks.push({ type: "spacing", text: "" });
+    consecutiveEmpties = 0;
+    blocks.push({ type: classifyLine(trimmed), text: trimmed });
+  }
+  return blocks;
+}
+
+function SmartBlock({ block, idx }) {
+  switch (block.type) {
+    case "scene-break": return <div key={idx} className="scene-break" aria-hidden="true"><span>✦</span></div>;
+    case "spacing": return <div key={idx} className="h-3" />;
+    case "game-badge": return <div key={idx} className="game-badge">{block.text}</div>;
+    case "dialogue": return <p key={idx} className="dialogue">{block.text}</p>;
+    case "sfx": return <p key={idx} className="sfx">{block.text}</p>;
+    case "thought": return <p key={idx} className="thought">{block.text}</p>;
+    default: return <p key={idx} className="narration">{block.text}</p>;
+  }
+}
+
+function SmartMessage({ message }) {
+  const blocks = useMemo(() => parseMessage(message), [message]);
+  if (blocks.length === 0) return null;
+  return (
+    <div className="chapter-content">
+      <div className="smart-content">
+        {blocks.map((block, i) => <SmartBlock key={i} block={block} idx={i} />)}
+      </div>
+    </div>
+  );
+}
 
 export default function TeamAnnonces({ oeuvreId }) {
   const [annonces, setAnnonces] = useState([]);
@@ -379,10 +440,8 @@ export default function TeamAnnonces({ oeuvreId }) {
                   )}
                 </div>
 
-                {/* Message */}
-                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                  {annonce.message}
-                </div>
+                {/* Message — Lecture Intelligente */}
+                <SmartMessage message={annonce.message} />
               </div>
             );
           })}
