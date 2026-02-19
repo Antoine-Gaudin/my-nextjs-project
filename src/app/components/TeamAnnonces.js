@@ -211,7 +211,7 @@ export default function TeamAnnonces({ oeuvreId }) {
         ))}
       </div>
 
-      {/* Fil d'annonces */}}
+      {/* Fil d'annonces */}
       {annonces.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 flex items-center justify-center">
