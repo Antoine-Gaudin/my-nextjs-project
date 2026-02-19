@@ -68,13 +68,7 @@ function SmartMessage({ message }) {
 export default function TeamAnnonces({ oeuvreId }) {
   const [annonces, setAnnonces] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [ownerTeam, setOwnerTeam] = useState(null);
-  const [isOeuvreOwner, setIsOeuvreOwner] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [newMessage, setNewMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [confirmState, setConfirmState] = useState({ open: false, message: "", onConfirm: null });
 
@@ -105,30 +99,6 @@ export default function TeamAnnonces({ oeuvreId }) {
       const linkedTeams = teamsData.data || [];
       setTeams(linkedTeams);
 
-      // 2. Vérifier si l'utilisateur courant est owner d'une de ces teams
-      const jwt = Cookies.get("jwt");
-      if (jwt && currentUser) {
-        const owned = linkedTeams.find(
-          (t) => t.owner?.id === currentUser.id
-        );
-        setOwnerTeam(owned || null);
-
-        // 2b. Vérifier si l'utilisateur est propriétaire de l'œuvre (solo)
-        if (!owned) {
-          try {
-            const oeuvreRes = await fetch(
-              `/api/proxy/oeuvres?filters[documentId][$eq]=${oeuvreId}&populate=users`,
-              { headers: { Authorization: `Bearer ${jwt}` } }
-            );
-            const oeuvreData = await oeuvreRes.json();
-            const oeuvre = oeuvreData.data?.[0];
-            if (oeuvre?.users?.some((u) => u.id === currentUser.id)) {
-              setIsOeuvreOwner(true);
-            }
-          } catch {}
-        }
-      }
-
       // 3. Récupérer les annonces pour cette œuvre
       const annoncesRes = await fetch(
         `/api/proxy/team-annonces?filters[oeuvre][documentId][$eq]=${oeuvreId}&populate=auteur&populate=team.logo&sort=createdAt:desc&pagination[pageSize]=50`
@@ -145,60 +115,6 @@ export default function TeamAnnonces({ oeuvreId }) {
   useEffect(() => {
     if (oeuvreId) fetchData();
   }, [fetchData]);
-
-  // Qui peut publier ?
-  const canPost = ownerTeam || isOeuvreOwner;
-
-  // Poster une annonce
-  const handlePost = async () => {
-    if (!newMessage.trim() || !canPost) return;
-
-    setIsSending(true);
-    setError("");
-    setSuccess("");
-
-    const jwt = Cookies.get("jwt");
-    if (!jwt) {
-      setError("Vous devez être connecté");
-      setIsSending(false);
-      return;
-    }
-
-    try {
-      const postData = {
-        message: newMessage.trim(),
-        oeuvre: oeuvreId,
-        auteur: currentUser.id,
-      };
-      // Si c'est via une team, on l'associe
-      if (ownerTeam) {
-        postData.team = ownerTeam.documentId;
-      }
-
-      const res = await fetch("/api/proxy/team-annonces", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwt}`,
-        },
-        body: JSON.stringify({ data: postData }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Erreur lors de l'envoi");
-      }
-
-      setNewMessage("");
-      setSuccess("Annonce publiée !");
-      setTimeout(() => setSuccess(""), 3000);
-      fetchData();
-    } catch (err) {
-      console.error("Erreur post annonce:", err);
-      setError(err.message || "Une erreur est survenue");
-    } finally {
-      setIsSending(false);
-    }
-  };
 
   // Supprimer une annonce
   const handleDelete = (annonceDocumentId) => {
@@ -255,8 +171,8 @@ export default function TeamAnnonces({ oeuvreId }) {
     );
   }
 
-  // Si aucune team et pas owner solo — afficher message vide
-  if (teams.length === 0 && !isOeuvreOwner) {
+  // Si aucune team — afficher message vide
+  if (teams.length === 0) {
     return (
       <div className="text-center py-16">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 flex items-center justify-center">
@@ -295,75 +211,7 @@ export default function TeamAnnonces({ oeuvreId }) {
         ))}
       </div>
 
-      {/* Formulaire de publication (owner team ou owner solo) */}
-      {canPost && (
-        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-semibold text-sm">Publier une annonce</p>
-              <p className="text-gray-400 text-xs">En tant que {ownerTeam ? ownerTeam.nom : currentUser?.username}</p>
-            </div>
-          </div>
-
-          {success && (
-            <div className="mb-3 px-3 py-2 bg-green-600/20 border border-green-600/30 rounded-xl text-green-400 text-sm flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
-              {success}
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-3 px-3 py-2 bg-red-600/20 border border-red-600/30 rounded-xl text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <textarea
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Écrire une annonce pour vos lecteurs..."
-            rows={3}
-            className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700/50 focus:border-indigo-600/50 rounded-xl text-white placeholder-gray-500 outline-none resize-none transition-colors"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.ctrlKey) handlePost();
-            }}
-          />
-
-          <div className="flex items-center justify-between mt-3">
-            <p className="text-gray-600 text-xs">
-              Ctrl+Entrée pour envoyer • {newMessage.length}/2000
-            </p>
-            <button
-              onClick={handlePost}
-              disabled={!newMessage.trim() || isSending || newMessage.length > 2000}
-              className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 text-white disabled:text-gray-500 rounded-xl font-medium text-sm transition-colors disabled:cursor-not-allowed"
-            >
-              {isSending ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Envoi...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  Publier
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Fil d'annonces */}
+      {/* Fil d'annonces */}}
       {annonces.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 flex items-center justify-center">
@@ -373,9 +221,7 @@ export default function TeamAnnonces({ oeuvreId }) {
           </div>
           <p className="text-gray-400">Aucune annonce pour le moment</p>
           <p className="text-gray-600 text-sm mt-1">
-            {canPost
-              ? "Publiez votre première annonce pour vos lecteurs !"
-              : "Le traducteur publiera ses annonces ici"}
+            Le traducteur publiera ses annonces ici
           </p>
         </div>
       ) : (
