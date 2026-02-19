@@ -86,7 +86,7 @@ const MoOeuvre = ({ oeuvre, onClose, onUpdate }) => {
         const res = await fetch("/api/novel-index", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-          body: JSON.stringify({ action: "search-oeuvres", data: { query, pageSize: 20 } }),
+          body: JSON.stringify({ action: "search-oeuvres", query, pageSize: 20 }),
         });
         const json = await res.json();
         setNiResults(json.data || []);
