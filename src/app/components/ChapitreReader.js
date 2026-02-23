@@ -338,7 +338,15 @@ function RichContentRenderer({ texte, fontSize, fontFamily, contentClasses, cont
 export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
   const router = useRouter();
 
+  // ─── Thèmes de lecture ───
+  const THEME_DEFAULTS = {
+    dark:    { dialogue: "#c7d2fe", thought: "#a5b4c4", sfx: "#f9fafb", gameBadge: "#a5b4fc", narration: "#e5e7eb" },
+    light:   { dialogue: "#3730a3", thought: "#475569", sfx: "#1c1917", gameBadge: "#4338ca", narration: "#1c1917" },
+    comfort: { dialogue: "#92400e", thought: "#78716c", sfx: "#44403c", gameBadge: "#b45309", narration: "#44403c" },
+  };
+
   // Préférences de lecture
+  const [readerTheme, setReaderTheme] = useState("dark");
   const [fontSize, setFontSize] = useState(18);
   const [fontFamily, setFontFamily] = useState("sans");
   const [lineHeight, setLineHeight] = useState(1.8);
@@ -431,6 +439,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
       const saved = localStorage.getItem("reader-prefs");
       if (saved) {
         const prefs = JSON.parse(saved);
+        if (prefs.readerTheme) setReaderTheme(prefs.readerTheme);
         if (prefs.fontSize) setFontSize(prefs.fontSize);
         if (prefs.fontFamily) setFontFamily(prefs.fontFamily);
         if (prefs.lineHeight) setLineHeight(prefs.lineHeight);
@@ -458,11 +467,11 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
   useEffect(() => {
     try {
       localStorage.setItem("reader-prefs", JSON.stringify({
-        fontSize, fontFamily, lineHeight, classificationEnabled,
+        readerTheme, fontSize, fontFamily, lineHeight, classificationEnabled,
         dialogueStyle, thoughtStyle, colors,
       }));
     } catch (e) {}
-  }, [fontSize, fontFamily, lineHeight, classificationEnabled, dialogueStyle, thoughtStyle, colors]);
+  }, [readerTheme, fontSize, fontFamily, lineHeight, classificationEnabled, dialogueStyle, thoughtStyle, colors]);
 
   // Classes CSS dynamiques pour le conteneur chapter-content
   const contentClasses = useMemo(() => {
@@ -474,6 +483,65 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
     if (thoughtStyle === "border") cls.push("thought-style-border");
     return cls.join(" ");
   }, [classificationEnabled, dialogueStyle, thoughtStyle]);
+
+  // Classe thème appliquée sur le wrapper principal
+  const themeWrapperClass = readerTheme !== "dark" ? `reader-theme-${readerTheme}` : "";
+
+  // ─── Styles dynamiques selon le thème ───
+  const t = useMemo(() => {
+    if (readerTheme === "light") return {
+      pageBg: "bg-stone-50", pageText: "text-stone-900",
+      headerBg: "bg-white/95", headerBorder: "border-stone-200",
+      btnHover: "hover:bg-stone-200", btnText: "text-stone-500 hover:text-stone-900",
+      dropBg: "bg-white", dropBorder: "border-stone-200",
+      cardBg: "bg-stone-100", cardHover: "hover:bg-stone-200", cardBorder: "border-stone-200", cardHoverBorder: "hover:border-stone-300",
+      mutedText: "text-stone-500", dimText: "text-stone-400", titleText: "text-stone-900",
+      settingBg: "bg-stone-100", settingBorder: "border-stone-300", settingInactiveBg: "bg-stone-200", settingInactiveBorder: "border-stone-300", settingInactiveText: "text-stone-500",
+      progressBg: "bg-stone-200", kbdBg: "bg-stone-200", kbdBorder: "border-stone-300",
+      scrollTopBg: "bg-white hover:bg-stone-100", scrollTopBorder: "border-stone-300",
+      floatBg: "bg-white/90", floatBorder: "border-stone-200",
+      pdfBg: "bg-stone-100", pdfBorder: "border-stone-200",
+      breadcrumbSep: "text-stone-300",
+      chapterBorder: "border-stone-200",
+    };
+    if (readerTheme === "comfort") return {
+      pageBg: "bg-amber-50", pageText: "text-amber-950",
+      headerBg: "bg-orange-50/95", headerBorder: "border-amber-200",
+      btnHover: "hover:bg-amber-200", btnText: "text-amber-700 hover:text-amber-950",
+      dropBg: "bg-orange-50", dropBorder: "border-amber-200",
+      cardBg: "bg-amber-100/60", cardHover: "hover:bg-amber-200/60", cardBorder: "border-amber-200", cardHoverBorder: "hover:border-amber-300",
+      mutedText: "text-amber-700", dimText: "text-amber-600", titleText: "text-amber-950",
+      settingBg: "bg-amber-100", settingBorder: "border-amber-300", settingInactiveBg: "bg-amber-100", settingInactiveBorder: "border-amber-300", settingInactiveText: "text-amber-700",
+      progressBg: "bg-amber-200", kbdBg: "bg-amber-100", kbdBorder: "border-amber-300",
+      scrollTopBg: "bg-orange-50 hover:bg-amber-100", scrollTopBorder: "border-amber-300",
+      floatBg: "bg-orange-50/90", floatBorder: "border-amber-200",
+      pdfBg: "bg-amber-100", pdfBorder: "border-amber-200",
+      breadcrumbSep: "text-amber-300",
+      chapterBorder: "border-amber-200",
+    };
+    // dark (default)
+    return {
+      pageBg: "bg-gray-950", pageText: "text-white",
+      headerBg: "bg-gray-900/95", headerBorder: "border-gray-800",
+      btnHover: "hover:bg-gray-800", btnText: "text-gray-400 hover:text-white",
+      dropBg: "bg-gray-800", dropBorder: "border-gray-700",
+      cardBg: "bg-gray-900", cardHover: "hover:bg-gray-800", cardBorder: "border-gray-800", cardHoverBorder: "hover:border-gray-700",
+      mutedText: "text-gray-400", dimText: "text-gray-600", titleText: "text-white",
+      settingBg: "bg-gray-700", settingBorder: "border-gray-600", settingInactiveBg: "bg-gray-700", settingInactiveBorder: "border-gray-600", settingInactiveText: "text-gray-400",
+      progressBg: "bg-gray-900", kbdBg: "bg-gray-800", kbdBorder: "border-gray-700",
+      scrollTopBg: "bg-gray-800 hover:bg-gray-700", scrollTopBorder: "border-gray-700",
+      floatBg: "bg-gray-800/90", floatBorder: "border-gray-700",
+      pdfBg: "bg-gray-900", pdfBorder: "border-gray-800",
+      breadcrumbSep: "text-gray-700",
+      chapterBorder: "border-gray-800",
+    };
+  }, [readerTheme]);
+
+  // Handler changement de thème
+  const changeTheme = useCallback((newTheme) => {
+    setReaderTheme(newTheme);
+    setColors(THEME_DEFAULTS[newTheme]);
+  }, []);
 
   // CSS variables inline pour les couleurs personnalisées
   const contentCSSVars = useMemo(() => ({
@@ -656,10 +724,10 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
   }, [prevChapter, nextChapter, navigateTo]);
 
   return (
-    <div className={`min-h-screen bg-gray-950 text-white transition-opacity duration-200 ${isTransitioning ? "opacity-0" : "opacity-100"}`}>
+    <div className={`min-h-screen ${t.pageBg} ${t.pageText} transition-opacity duration-200 ${themeWrapperClass} ${isTransitioning ? "opacity-0" : "opacity-100"}`}>
       {/* ─── Barre de progression de lecture ─── */}
       {!zenMode && (
-        <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-gray-900" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progression de lecture">
+        <div className={`fixed top-0 left-0 right-0 z-50 h-1 ${t.progressBg}`} role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progression de lecture">
           <div
             ref={progressBarRef}
             className="h-full bg-gradient-to-r from-indigo-600 to-purple-500 transition-all duration-150 ease-out"
@@ -675,13 +743,13 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
           showHeader ? "translate-y-0" : "-translate-y-full"
         }`}
       >
-        <div className="bg-gray-900/95 backdrop-blur-md border-b border-gray-800">
+        <div className={`${t.headerBg} backdrop-blur-md border-b ${t.headerBorder}`}>
           <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
             {/* Gauche : retour + infos */}
             <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => router.push("/oeuvres")}
-                className="flex-shrink-0 p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+                className={`flex-shrink-0 p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText}`}
                 title="Retour au catalogue"
                 aria-label="Retour au catalogue"
               >
@@ -690,36 +758,82 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                 </svg>
               </button>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400 truncate">{oeuvreTitle}</p>
-                <p className="text-sm font-medium text-white truncate">{chapterTitle}</p>
+                <p className={`text-xs ${t.mutedText} truncate`}>{oeuvreTitle}</p>
+                <p className={`text-sm font-medium ${t.titleText} truncate`}>{chapterTitle}</p>
               </div>
             </div>
 
             {/* Droite : actions */}
             <div className="flex items-center gap-1">
               {/* Taille de police rapide */}
-              <div className="hidden sm:flex items-center gap-0.5 mr-1 px-1.5 py-1 bg-gray-800/60 rounded-lg">
+              <div className={`hidden sm:flex items-center gap-0.5 mr-1 px-1.5 py-1 ${t.dropBg} rounded-lg border ${t.dropBorder}`}>
                 <button
                   onClick={() => setFontSize(Math.max(14, fontSize - 2))}
-                  className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                  className={`w-7 h-7 rounded flex items-center justify-center ${t.btnText} transition-colors`}
                   aria-label="Réduire la taille du texte"
                 >
                   <span className="text-xs font-bold">A-</span>
                 </button>
-                <span className="text-[10px] text-gray-500 w-8 text-center tabular-nums">{fontSize}px</span>
+                <span className={`text-[10px] ${t.dimText} w-8 text-center tabular-nums`}>{fontSize}px</span>
                 <button
                   onClick={() => setFontSize(Math.min(28, fontSize + 2))}
-                  className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                  className={`w-7 h-7 rounded flex items-center justify-center ${t.btnText} transition-colors`}
                   aria-label="Augmenter la taille du texte"
                 >
                   <span className="text-sm font-bold">A+</span>
                 </button>
               </div>
 
+              {/* ─── Sélecteur de thème (toujours visible) ─── */}
+              <div className={`flex items-center gap-0.5 mr-1 px-1 py-1 ${t.dropBg} rounded-lg border ${t.dropBorder}`}>
+                <button
+                  onClick={() => changeTheme("dark")}
+                  title="Thème sombre"
+                  aria-label="Thème sombre"
+                  className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                    readerTheme === "dark"
+                      ? "bg-gray-900 ring-2 ring-indigo-500 text-gray-200"
+                      : `${t.btnText}`
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => changeTheme("light")}
+                  title="Thème clair"
+                  aria-label="Thème clair"
+                  className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                    readerTheme === "light"
+                      ? "bg-stone-50 ring-2 ring-indigo-500 text-stone-800"
+                      : `${t.btnText}`
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => changeTheme("comfort")}
+                  title="Thème confort (sépia)"
+                  aria-label="Thème confort"
+                  className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                    readerTheme === "comfort"
+                      ? "bg-amber-50 ring-2 ring-amber-500 text-amber-900"
+                      : `${t.btnText}`
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </button>
+              </div>
+
               {/* Copier le lien */}
               <button
                 onClick={copyChapterLink}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+                className={`p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText}`}
                 title={copiedLink ? "Lien copié !" : "Copier le lien du chapitre"}
                 aria-label="Copier le lien du chapitre"
               >
@@ -737,7 +851,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
               {/* Mode zen */}
               <button
                 onClick={() => setZenMode(true)}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+                className={`p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText}`}
                 title="Mode lecture zen (Escape pour quitter)"
                 aria-label="Activer le mode lecture zen"
               >
@@ -753,7 +867,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                     setShowChapterList(!showChapterList);
                     setShowSettings(false);
                   }}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+                  className={`p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText}`}
                   title="Liste des chapitres"
                   aria-label="Liste des chapitres"
                   aria-expanded={showChapterList}
@@ -764,9 +878,9 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                   </svg>
                 </button>
                 {showChapterList && (
-                  <div className="absolute right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-80 overflow-y-auto no-scrollbar animate-fade-in">
-                    <div className="p-3 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
-                      <p className="text-sm font-semibold text-white">Chapitres ({sortedChapitres.length})</p>
+                  <div className={`absolute right-0 mt-2 w-72 ${t.dropBg} border ${t.dropBorder} rounded-xl shadow-2xl max-h-80 overflow-y-auto no-scrollbar animate-fade-in`}>
+                    <div className={`p-3 border-b ${t.dropBorder} sticky top-0 ${t.dropBg} z-10`}>
+                      <p className={`text-sm font-semibold ${t.titleText}`}>Chapitres ({sortedChapitres.length})</p>
                     </div>
                     {sortedChapitres.map((chap) => (
                       <button
@@ -775,7 +889,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                           navigateTo(chap);
                           setShowChapterList(false);
                         }}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors flex items-center gap-3 ${
+                        className={`w-full text-left px-4 py-3 ${t.cardHover} transition-colors flex items-center gap-3 ${
                           chap.documentId === chapitre.documentId
                             ? "bg-indigo-600/20 border-l-2 border-indigo-500"
                             : ""
@@ -785,7 +899,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                           className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
                             chap.documentId === chapitre.documentId
                               ? "bg-indigo-600 text-white"
-                              : "bg-gray-700 text-gray-400"
+                              : `${t.settingBg} ${t.mutedText}`
                           }`}
                         >
                           {chap.order}
@@ -794,7 +908,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                           className={`text-sm truncate flex-1 ${
                             chap.documentId === chapitre.documentId
                               ? "text-indigo-300 font-medium"
-                              : "text-gray-300"
+                              : t.mutedText
                           }`}
                         >
                           {chap.titre}
@@ -817,7 +931,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                     setShowSettings(!showSettings);
                     setShowChapterList(false);
                   }}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+                  className={`p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText}`}
                   title="Paramètres de lecture"
                   aria-label="Paramètres de lecture"
                   aria-expanded={showSettings}
@@ -828,11 +942,11 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                   </svg>
                 </button>
                 {showSettings && (
-                  <div className="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl animate-fade-in max-h-[70vh] overflow-y-auto no-scrollbar">
+                  <div className={`absolute right-0 mt-2 w-80 ${t.dropBg} border ${t.dropBorder} rounded-xl shadow-2xl animate-fade-in max-h-[70vh] overflow-y-auto no-scrollbar`}>
                     {/* Header avec onglets */}
-                    <div className="sticky top-0 bg-gray-800 z-10 border-b border-gray-700">
+                    <div className={`sticky top-0 ${t.dropBg} z-10 border-b ${t.dropBorder}`}>
                       <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                        <p className="text-sm font-semibold text-white">Paramètres de lecture</p>
+                        <p className={`text-sm font-semibold ${t.titleText}`}>Paramètres de lecture</p>
                         <a href="/documentation/editeur" target="_blank" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
                           Documentation
                         </a>
@@ -849,7 +963,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                               settingsTab === key
                                 ? "bg-indigo-600/20 text-indigo-300"
-                                : "text-gray-400 hover:text-gray-300"
+                                : `${t.mutedText}`
                             }`}
                           >
                             {label}
@@ -862,15 +976,42 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                       {/* ─── Onglet Général ─── */}
                       {settingsTab === "general" && (
                         <div className="space-y-5">
+                          {/* Thème de lecture */}
+                          <div>
+                            <label className={`text-xs ${t.mutedText} mb-2 block`}>Thème</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { key: "dark", label: "Sombre", bg: "bg-gray-900", fg: "text-gray-200", ring: "ring-indigo-500" },
+                                { key: "light", label: "Clair", bg: "bg-stone-50", fg: "text-stone-800", ring: "ring-indigo-500" },
+                                { key: "comfort", label: "Confort", bg: "bg-amber-50", fg: "text-amber-900", ring: "ring-amber-500" },
+                              ].map(({ key, label, bg, fg, ring }) => (
+                                <button
+                                  key={key}
+                                  onClick={() => changeTheme(key)}
+                                  className={`relative p-2 rounded-lg border text-center transition-all ${
+                                    readerTheme === key
+                                      ? `${bg} ring-2 ${ring} border-transparent`
+                                      : `${t.settingInactiveBg} ${t.settingInactiveBorder} border ${t.settingInactiveText} hover:border-current`
+                                  }`}
+                                >
+                                  <span className={`block w-full h-6 rounded ${bg} mb-1.5 border border-black/10`}>
+                                    <span className={`block text-[10px] leading-6 ${fg}`}>Aa</span>
+                                  </span>
+                                  <span className={`text-xs ${readerTheme === key ? fg : ""}`}>{label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
                           {/* Taille de police */}
                           <div>
-                            <label className="text-xs text-gray-400 mb-2 block">
+                            <label className={`text-xs ${t.mutedText} mb-2 block`}>
                               Taille du texte : {fontSize}px
                             </label>
                             <div className="flex items-center gap-3">
                               <button
                                 onClick={() => setFontSize(Math.max(14, fontSize - 2))}
-                                className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white transition-colors"
+                                className={`w-8 h-8 rounded-lg ${t.settingBg} flex items-center justify-center ${t.titleText} transition-colors`}
                                 aria-label="Réduire la taille du texte"
                               >
                                 <span className="text-xs font-bold">A-</span>
@@ -881,7 +1022,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                                 aria-label={`Taille du texte : ${fontSize}px`} />
                               <button
                                 onClick={() => setFontSize(Math.min(28, fontSize + 2))}
-                                className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white transition-colors"
+                                className={`w-8 h-8 rounded-lg ${t.settingBg} flex items-center justify-center ${t.titleText} transition-colors`}
                                 aria-label="Augmenter la taille du texte"
                               >
                                 <span className="text-sm font-bold">A+</span>
@@ -898,14 +1039,14 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                               onChange={(e) => setLineHeight(Number(e.target.value))}
                               className="w-full accent-indigo-500"
                               aria-label={`Interligne : ${lineHeight.toFixed(1)}`} />
-                            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+                            <div className={`flex justify-between text-[10px] ${t.dimText} mt-1`}>
                               <span>Dense</span><span>Aéré</span>
                             </div>
                           </div>
 
                           {/* Police */}
                           <div>
-                            <label className="text-xs text-gray-400 mb-2 block">Police</label>
+                            <label className={`text-xs ${t.mutedText} mb-2 block`}>Police</label>
                             <div className="grid grid-cols-3 gap-2">
                               {[
                                 { key: "sans", label: "Sans", preview: "Aa" },
@@ -918,7 +1059,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                                   className={`p-2 rounded-lg border text-center transition-all ${
                                     fontFamily === key
                                       ? "bg-indigo-600/20 border-indigo-500 text-indigo-300"
-                                      : "bg-gray-700 border-gray-600 text-gray-400 hover:border-gray-500"
+                                      : `${t.settingInactiveBg} ${t.settingInactiveBorder} ${t.settingInactiveText} hover:border-current`
                                   }`}
                                 >
                                   <span className="block text-lg" style={{
@@ -938,8 +1079,8 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                           {/* Toggle classification */}
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-white font-medium">Classification active</p>
-                              <p className="text-xs text-gray-400">Style visuel par type de contenu</p>
+                              <p className={`text-sm ${t.titleText} font-medium`}>Classification active</p>
+                              <p className={`text-xs ${t.mutedText}`}>Style visuel par type de contenu</p>
                             </div>
                             <button
                               onClick={() => setClassificationEnabled(!classificationEnabled)}
@@ -960,7 +1101,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                             <>
                               {/* Style dialogue */}
                               <div>
-                                <label className="text-xs text-gray-400 mb-2 block">Style des dialogues</label>
+                                <label className={`text-xs ${t.mutedText} mb-2 block`}>Style des dialogues</label>
                                 <div className="grid grid-cols-3 gap-2">
                                   {[
                                     { key: "border-left", label: "Bordure", icon: "┃" },
@@ -973,7 +1114,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                                       className={`p-2 rounded-lg border text-center transition-all ${
                                         dialogueStyle === key
                                           ? "bg-blue-600/20 border-blue-500 text-blue-300"
-                                          : "bg-gray-700 border-gray-600 text-gray-400 hover:border-gray-500"
+                                          : `${t.settingInactiveBg} ${t.settingInactiveBorder} ${t.settingInactiveText} hover:border-current`
                                       }`}
                                     >
                                       <span className="block text-base mb-0.5">{icon}</span>
@@ -985,7 +1126,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
 
                               {/* Style pensées */}
                               <div>
-                                <label className="text-xs text-gray-400 mb-2 block">Style des pensées</label>
+                                <label className={`text-xs ${t.mutedText} mb-2 block`}>Style des pensées</label>
                                 <div className="grid grid-cols-3 gap-2">
                                   {[
                                     { key: "italic", label: "Italique", icon: "𝑖" },
@@ -998,7 +1139,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                                       className={`p-2 rounded-lg border text-center transition-all ${
                                         thoughtStyle === key
                                           ? "bg-purple-600/20 border-purple-500 text-purple-300"
-                                          : "bg-gray-700 border-gray-600 text-gray-400 hover:border-gray-500"
+                                          : `${t.settingInactiveBg} ${t.settingInactiveBorder} ${t.settingInactiveText} hover:border-current`
                                       }`}
                                     >
                                       <span className="block text-base mb-0.5">{icon}</span>
@@ -1015,7 +1156,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                       {/* ─── Onglet Couleurs ─── */}
                       {settingsTab === "couleurs" && (
                         <div className="space-y-3">
-                          <p className="text-xs text-gray-400 mb-2">Personnalisez la couleur de chaque type de contenu</p>
+                          <p className={`text-xs ${t.mutedText} mb-2`}>Personnalisez la couleur de chaque type de contenu</p>
                           {[
                             { key: "dialogue", label: "Dialogue", dot: "bg-blue-400" },
                             { key: "thought", label: "Pensées", dot: "bg-purple-400" },
@@ -1023,29 +1164,26 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                             { key: "gameBadge", label: "Système / Badge", dot: "bg-cyan-400" },
                             { key: "narration", label: "Narration", dot: "bg-gray-400" },
                           ].map(({ key, label, dot }) => (
-                            <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-gray-700/30">
+                            <div key={key} className={`flex items-center justify-between p-2 rounded-lg ${t.settingBg}/30`}>
                               <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${dot}`} />
-                                <span className="text-sm text-gray-300">{label}</span>
+                                <span className={`text-sm ${t.mutedText}`}>{label}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono text-gray-400">{colors[key]}</span>
+                                <span className={`text-xs font-mono ${t.dimText}`}>{colors[key]}</span>
                                 <input
                                   type="color"
                                   value={colors[key]}
                                   onChange={(e) => setColors(prev => ({ ...prev, [key]: e.target.value }))}
-                                  className="w-7 h-7 rounded-lg border border-gray-600 cursor-pointer bg-transparent"
+                                  className={`w-7 h-7 rounded-lg border ${t.settingBorder} cursor-pointer bg-transparent`}
                                   aria-label={`Couleur ${label}`}
                                 />
                               </div>
                             </div>
                           ))}
                           <button
-                            onClick={() => setColors({
-                              dialogue: "#c7d2fe", thought: "#a5b4c4",
-                              sfx: "#f9fafb", gameBadge: "#a5b4fc", narration: "#e5e7eb",
-                            })}
-                            className="w-full mt-2 text-xs text-gray-400 hover:text-gray-300 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
+                            onClick={() => setColors(THEME_DEFAULTS[readerTheme])}
+                            className={`w-full mt-2 text-xs ${t.mutedText} py-1.5 rounded-lg border ${t.dropBorder} transition-colors`}
                           >
                             Réinitialiser les couleurs par défaut
                           </button>
@@ -1061,7 +1199,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                 <button
                   onClick={() => prevChapter && navigateTo(prevChapter)}
                   disabled={!prevChapter}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  className={`p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText} disabled:opacity-30 disabled:cursor-not-allowed`}
                   title="Chapitre précédent (←)"
                   aria-label="Chapitre précédent"
                 >
@@ -1072,7 +1210,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                 <button
                   onClick={() => nextChapter && navigateTo(nextChapter)}
                   disabled={!nextChapter}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  className={`p-2 ${t.btnHover} rounded-lg transition-colors ${t.btnText} disabled:opacity-30 disabled:cursor-not-allowed`}
                   title="Chapitre suivant (→)"
                   aria-label="Chapitre suivant"
                 >
@@ -1091,26 +1229,26 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
       <main ref={contentRef} className={zenMode ? "pt-8 pb-32" : "pt-20 pb-32"}>
         {/* Fil d'Ariane (Breadcrumb) */}
         <nav aria-label="Fil d'Ariane" className="max-w-3xl mx-auto px-4 sm:px-6 mb-6">
-          <ol className="flex items-center flex-wrap gap-1.5 text-sm text-gray-400" itemScope itemType="https://schema.org/BreadcrumbList">
+          <ol className={`flex items-center flex-wrap gap-1.5 text-sm ${t.mutedText}`} itemScope itemType="https://schema.org/BreadcrumbList">
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-              <a href="/" itemProp="item" className="hover:text-gray-300 transition-colors">
+              <a href="/" itemProp="item" className="hover:opacity-75 transition-colors">
                 <span itemProp="name">Accueil</span>
               </a>
               <meta itemProp="position" content="1" />
             </li>
-            <li className="text-gray-700">/</li>
+            <li className={t.breadcrumbSep}>/</li>
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-              <a href="/oeuvres" itemProp="item" className="hover:text-gray-300 transition-colors">
+              <a href="/oeuvres" itemProp="item" className="hover:opacity-75 transition-colors">
                 <span itemProp="name">Catalogue</span>
               </a>
               <meta itemProp="position" content="2" />
             </li>
-            <li className="text-gray-700">/</li>
+            <li className={t.breadcrumbSep}>/</li>
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-              <span itemProp="name" className="text-gray-400">{oeuvreTitle}</span>
+              <span itemProp="name" className={t.mutedText}>{oeuvreTitle}</span>
               <meta itemProp="position" content="3" />
             </li>
-            <li className="text-gray-700">/</li>
+            <li className={t.breadcrumbSep}>/</li>
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
               <span itemProp="name" className="text-indigo-400">Chapitre {chapitre.order}</span>
               <meta itemProp="position" content="4" />
@@ -1120,7 +1258,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
 
         {/* En-tête du chapitre */}
         <div className="max-w-3xl mx-auto px-4 sm:px-6 mb-10">
-          <div className="text-center py-10 border-b border-gray-800">
+          <div className={`text-center py-10 border-b ${t.chapterBorder}`}>
             {/* Lien vers l'œuvre */}
             <button
               onClick={() => router.push("/oeuvres")}
@@ -1134,18 +1272,18 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
 
             {/* Numéro du chapitre */}
             {chapitre.order && (
-              <div className="text-sm text-gray-400 uppercase tracking-widest mb-2">
+              <div className={`text-sm ${t.mutedText} uppercase tracking-widest mb-2`}>
                 Chapitre {chapitre.order}
               </div>
             )}
 
             {/* Titre */}
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">
+            <h1 className={`text-3xl sm:text-4xl font-bold ${t.titleText} mb-4 leading-tight`}>
               {chapterTitle}
             </h1>
 
             {/* Meta */}
-            <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-400">
+            <div className={`flex flex-wrap items-center justify-center gap-4 text-sm ${t.mutedText}`}>
               {chapitre.publishedAt && (
                 <time dateTime={chapitre.publishedAt} className="flex items-center gap-1.5">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1164,7 +1302,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                 </span>
               )}
               {sortedChapitres.length > 0 && (
-                <span className="text-gray-600">
+                <span className={t.dimText}>
                   {currentIndex + 1} / {sortedChapitres.length}
                 </span>
               )}
@@ -1176,7 +1314,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                     </svg>
                     ~{readingTime} min de lecture
                   </span>
-                  <span className="text-gray-600">
+                  <span className={t.dimText}>
                     {wordCount.toLocaleString("fr-FR")} mots
                   </span>
                 </>
@@ -1190,15 +1328,15 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
           {chapitre.pdf ? (
             // ─── Chapitre PDF : affichage intégré + lien de téléchargement ───
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-center gap-4 p-6 bg-gray-900 rounded-xl border border-gray-800">
+              <div className={`flex flex-col sm:flex-row items-center gap-4 p-6 ${t.pdfBg} rounded-xl border ${t.pdfBorder}`}>
                 <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-green-600/20 flex items-center justify-center">
                   <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="flex-1 text-center sm:text-left">
-                  <h2 className="text-lg font-semibold text-white">Ce chapitre est disponible en PDF</h2>
-                  <p className="text-sm text-gray-400 mt-1">Consultez-le directement dans le lecteur intégré ou téléchargez-le.</p>
+                  <h2 className={`text-lg font-semibold ${t.titleText}`}>Ce chapitre est disponible en PDF</h2>
+                  <p className={`text-sm ${t.mutedText} mt-1`}>Consultez-le directement dans le lecteur intégré ou téléchargez-le.</p>
                 </div>
                 <a
                   href={chapitre.pdf}
@@ -1213,7 +1351,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                 </a>
               </div>
               {/* Lecteur PDF intégré */}
-              <div className="w-full rounded-xl overflow-hidden border border-gray-800 bg-gray-900">
+              <div className={`w-full rounded-xl overflow-hidden border ${t.pdfBorder} ${t.pdfBg}`}>
                 <iframe
                   src={chapitre.pdf}
                   className="w-full border-0"
@@ -1242,22 +1380,22 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
 
         {/* ─── Footer de navigation ─── */}
         <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-8">
-          <div className="border-t border-gray-800 pt-8">
+          <div className={`border-t ${t.chapterBorder} pt-8`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Chapitre précédent */}
               <div>
                 {prevChapter ? (
                   <button
                     onClick={() => navigateTo(prevChapter)}
-                    className="w-full group text-left p-4 bg-gray-900 hover:bg-gray-800 rounded-xl border border-gray-800 hover:border-gray-700 transition-all"
+                    className={`w-full group text-left p-4 ${t.cardBg} ${t.cardHover} rounded-xl border ${t.cardBorder} ${t.cardHoverBorder} transition-all`}
                   >
-                    <span className="text-xs text-gray-400 flex items-center gap-1 mb-1">
+                    <span className={`text-xs ${t.mutedText} flex items-center gap-1 mb-1`}>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                       </svg>
                       Chapitre précédent
                     </span>
-                    <span className="text-white font-medium group-hover:text-indigo-300 transition-colors line-clamp-1">
+                    <span className={`${t.titleText} font-medium group-hover:text-indigo-300 transition-colors line-clamp-1`}>
                       {prevChapter.titre}
                     </span>
                   </button>
@@ -1271,27 +1409,27 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
                 {nextChapter ? (
                   <button
                     onClick={() => navigateTo(nextChapter)}
-                    className="w-full group text-right p-4 bg-gray-900 hover:bg-gray-800 rounded-xl border border-gray-800 hover:border-gray-700 transition-all"
+                    className={`w-full group text-right p-4 ${t.cardBg} ${t.cardHover} rounded-xl border ${t.cardBorder} ${t.cardHoverBorder} transition-all`}
                   >
-                    <span className="text-xs text-gray-400 flex items-center justify-end gap-1 mb-1">
+                    <span className={`text-xs ${t.mutedText} flex items-center justify-end gap-1 mb-1`}>
                       Chapitre suivant
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                       </svg>
                     </span>
-                    <span className="text-white font-medium group-hover:text-indigo-300 transition-colors line-clamp-1">
+                    <span className={`${t.titleText} font-medium group-hover:text-indigo-300 transition-colors line-clamp-1`}>
                       {nextChapter.titre}
                     </span>
                   </button>
                 ) : (
-                  <div className="text-center p-6 bg-gray-900 rounded-xl border border-gray-800">
+                  <div className={`text-center p-6 ${t.cardBg} rounded-xl border ${t.cardBorder}`}>
                     <div className="w-12 h-12 rounded-full bg-indigo-600/20 flex items-center justify-center mx-auto mb-3">
                       <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <p className="text-white font-medium mb-1">Vous êtes à jour !</p>
-                    <p className="text-gray-400 text-sm mb-4">C&apos;était le dernier chapitre disponible pour <span className="text-indigo-300">{oeuvreTitle}</span>.</p>
+                    <p className={`${t.titleText} font-medium mb-1`}>Vous êtes à jour !</p>
+                    <p className={`${t.mutedText} text-sm mb-4`}>C&apos;était le dernier chapitre disponible pour <span className="text-indigo-300">{oeuvreTitle}</span>.</p>
                     <button
                       onClick={() => router.push("/oeuvres")}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
@@ -1307,22 +1445,22 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
             </div>
 
             {/* Raccourcis clavier (desktop) */}
-            <div className="hidden sm:flex items-center justify-center gap-6 mt-8 text-xs text-gray-600">
+            <div className={`hidden sm:flex items-center justify-center gap-6 mt-8 text-xs ${t.dimText}`}>
               <span className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-800 rounded border border-gray-700 font-mono">←</kbd>
+                <kbd className={`px-2 py-1 ${t.kbdBg} rounded border ${t.kbdBorder} font-mono`}>←</kbd>
                 Précédent
               </span>
               <span className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-800 rounded border border-gray-700 font-mono">→</kbd>
+                <kbd className={`px-2 py-1 ${t.kbdBg} rounded border ${t.kbdBorder} font-mono`}>→</kbd>
                 Suivant
               </span>
               <span className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-800 rounded border border-gray-700 font-mono">Home</kbd>
+                <kbd className={`px-2 py-1 ${t.kbdBg} rounded border ${t.kbdBorder} font-mono`}>Home</kbd>
                 Haut de page
               </span>
             </div>
             {/* Indication swipe mobile */}
-            <div className="sm:hidden flex items-center justify-center gap-2 mt-6 text-xs text-gray-600">
+            <div className={`sm:hidden flex items-center justify-center gap-2 mt-6 text-xs ${t.dimText}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
               </svg>
@@ -1339,7 +1477,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
       {showScrollTop && !zenMode && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 right-6 z-40 w-10 h-10 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition-all shadow-lg"
+          className={`fixed bottom-6 right-6 z-40 w-10 h-10 ${t.scrollTopBg} border ${t.scrollTopBorder} rounded-full flex items-center justify-center ${t.btnText} transition-all shadow-lg`}
           aria-label="Retour en haut de page"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1374,7 +1512,7 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
       {zenMode && (
         <button
           onClick={() => setZenMode(false)}
-          className="fixed top-4 right-4 z-50 p-2 bg-gray-800/80 hover:bg-gray-700 rounded-full text-gray-400 hover:text-white transition-all opacity-0 hover:opacity-100 focus:opacity-100"
+          className={`fixed top-4 right-4 z-50 p-2 ${t.floatBg} ${t.btnHover} rounded-full ${t.btnText} transition-all opacity-0 hover:opacity-100 focus:opacity-100`}
           aria-label="Quitter le mode zen"
           title="Quitter le mode zen (Escape)"
         >
@@ -1384,20 +1522,68 @@ export default function ChapitreReader({ chapitre, oeuvre, chapitres }) {
         </button>
       )}
 
-      {/* ─── Taille de police rapide (flottant) ─── */}
+      {/* ─── Contrôles flottants : thème + taille de police (toujours visibles) ─── */}
       {!zenMode && (
-        <div className="fixed bottom-6 left-4 z-40 flex items-center gap-0.5 px-2 py-1.5 bg-gray-800/90 border border-gray-700 rounded-full shadow-lg backdrop-blur-sm">
+        <div className={`fixed bottom-6 left-4 z-40 flex items-center gap-1 px-2 py-1.5 ${t.floatBg} border ${t.floatBorder} rounded-full shadow-lg backdrop-blur-sm`}>
+          {/* Sélecteur de thème */}
+          <button
+            onClick={() => changeTheme("dark")}
+            title="Sombre"
+            aria-label="Thème sombre"
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              readerTheme === "dark"
+                ? "bg-gray-900 ring-2 ring-indigo-500 text-gray-200"
+                : `${t.btnText}`
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => changeTheme("light")}
+            title="Clair"
+            aria-label="Thème clair"
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              readerTheme === "light"
+                ? "bg-stone-100 ring-2 ring-indigo-500 text-stone-800"
+                : `${t.btnText}`
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => changeTheme("comfort")}
+            title="Confort"
+            aria-label="Thème confort"
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              readerTheme === "comfort"
+                ? "bg-amber-100 ring-2 ring-amber-500 text-amber-900"
+                : `${t.btnText}`
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </button>
+
+          {/* Séparateur */}
+          <div className={`w-px h-5 ${t.floatBorder} mx-0.5`} />
+
+          {/* Taille de police */}
           <button
             onClick={() => setFontSize(Math.max(14, fontSize - 2))}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            className={`w-8 h-8 rounded-full flex items-center justify-center ${t.btnText} transition-colors`}
             aria-label="Réduire la taille du texte"
           >
             <span className="text-xs font-bold">A-</span>
           </button>
-          <span className="text-[10px] text-gray-500 w-8 text-center tabular-nums">{fontSize}</span>
+          <span className={`text-[10px] ${t.dimText} w-8 text-center tabular-nums`}>{fontSize}</span>
           <button
             onClick={() => setFontSize(Math.min(28, fontSize + 2))}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            className={`w-8 h-8 rounded-full flex items-center justify-center ${t.btnText} transition-colors`}
             aria-label="Augmenter la taille du texte"
           >
             <span className="text-sm font-bold">A+</span>

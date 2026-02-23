@@ -5,13 +5,16 @@ import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 
 export default function AuthPage() {
-  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [mode, setMode] = useState("login"); // "login" | "register" | "forgot"
   const router = useRouter();
 
   // ─── Login state ───
   const [identifier, setIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // ─── Forgot password state ───
+  const [forgotEmail, setForgotEmail] = useState("");
 
   // ─── Register state ───
   const [username, setUsername] = useState("");
@@ -51,7 +54,7 @@ export default function AuthPage() {
   const switchMode = (newMode) => {
     setMode(newMode);
     resetFeedback();
-    window.history.replaceState(null, "", newMode === "register" ? "#inscription" : "#connexion");
+    window.history.replaceState(null, "", newMode === "register" ? "#inscription" : newMode === "forgot" ? "#oubli" : "#connexion");
   };
 
   // ─── Password validation ───
@@ -167,6 +170,27 @@ export default function AuthPage() {
     }
   };
 
+  // ─── Forgot password handler ───
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    resetFeedback();
+
+    try {
+      await fetch(`/api/proxy/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      // Message générique pour ne pas révéler si l'email existe
+      setSuccess("Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.");
+    } catch {
+      setSuccess("Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ─── Password validation check icon ───
   const ValidationCheck = ({ valid, label }) => (
     <li className={`flex items-center gap-2 text-xs transition-colors ${valid ? "text-emerald-400" : "text-gray-400"}`}>
@@ -233,13 +257,13 @@ export default function AuthPage() {
             <button
               onClick={() => switchMode("login")}
               className={`flex-1 py-4 text-sm font-semibold transition-all relative ${
-                mode === "login"
+                mode === "login" || mode === "forgot"
                   ? "text-white"
                   : "text-gray-400 hover:text-gray-300"
               }`}
             >
-              Connexion
-              {mode === "login" && (
+              {mode === "forgot" ? "Mot de passe oublié" : "Connexion"}
+              {(mode === "login" || mode === "forgot") && (
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" />
               )}
             </button>
@@ -351,14 +375,77 @@ export default function AuthPage() {
                   )}
                 </button>
 
-                <p className="text-center text-sm text-gray-400 pt-2">
-                  Pas encore de compte ?{" "}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => switchMode("forgot")}
+                    className="text-sm text-gray-400 hover:text-indigo-300 transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </button>
                   <button
                     type="button"
                     onClick={() => switchMode("register")}
-                    className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                    className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
                   >
                     Créer un compte
+                  </button>
+                </div>
+              </form>
+            ) : mode === "forgot" ? (
+              /* ════════ FORGOT PASSWORD FORM ════════ */
+              <form onSubmit={handleForgotPassword} className="space-y-5">
+                <p className="text-sm text-gray-400">
+                  Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                </p>
+
+                <div>
+                  <label htmlFor="forgot-email" className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                    Adresse email
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                    </div>
+                    <input
+                      type="email"
+                      id="forgot-email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      placeholder="votre@email.com"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-800/60 border border-gray-700/60 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    "Envoyer le lien de réinitialisation"
+                  )}
+                </button>
+
+                <p className="text-center text-sm text-gray-400 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => switchMode("login")}
+                    className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                  >
+                    Retour à la connexion
                   </button>
                 </p>
               </form>

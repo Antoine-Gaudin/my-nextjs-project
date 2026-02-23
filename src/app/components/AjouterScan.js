@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import Cookies from "js-cookie";
 import { useToast } from "./Toast";
 import {
   MAX_IMAGE_SIZE_MB, MAX_PAGES,
   naturalSort, readDirectoryFiles, validateFiles, batchUploadImages,
+  needsConversion, convertAndResize,
 } from "../utils/scanUtils";
 
 /**
@@ -31,6 +32,10 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
   const abortRef = useRef(null);
   const mountedRef = useRef(true);
   const dialogRef = useRef(null);
+  const conversionMutex = useRef(Promise.resolve());
+
+  // ─── Conversion count ───
+  const convertingCount = useMemo(() => pages.filter((p) => p.converting).length, [pages]);
 
   // ─── Unmount guard ───
   useEffect(() => {
@@ -63,25 +68,47 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
     onClose();
   }, [pages, onClose]);
 
-  // ─── Ajout de fichiers ───
+  // ─── Ajout de fichiers (avec conversion auto non-WebP) ───
   const addFiles = useCallback((files) => {
     const validFiles = validateFiles(files, toast);
     if (validFiles.length === 0) return;
+
+    const toConvert = [];
 
     setPages((prev) => {
       if (prev.length + validFiles.length > MAX_PAGES) {
         toast.warning(`Maximum ${MAX_PAGES} pages par scan.`);
         return prev;
       }
-      const newPages = validFiles.map((file) => ({
-        id: ++idCounter.current,
-        file,
-        preview: URL.createObjectURL(file),
-        numero: 0,
-      }));
+      const newPages = validFiles.map((file) => {
+        const id = ++idCounter.current;
+        const converting = needsConversion(file);
+        if (converting) toConvert.push({ id, file });
+        return { id, file, preview: URL.createObjectURL(file), numero: 0, converting };
+      });
       const all = [...prev, ...newPages];
       return all.map((p, i) => ({ ...p, numero: i + 1 }));
     });
+
+    // Conversion en arrière-plan (par lots de 5, sérialisé via mutex)
+    if (toConvert.length > 0) {
+      conversionMutex.current = conversionMutex.current.then(async () => {
+        for (let i = 0; i < toConvert.length; i += 5) {
+          const batch = toConvert.slice(i, i + 5);
+          const results = await Promise.all(
+            batch.map(async ({ id, file }) => {
+              try { return { id, webp: await convertAndResize(file) }; }
+              catch { return { id, webp: file }; }
+            })
+          );
+          if (!mountedRef.current) return;
+          setPages((prev) => prev.map((p) => {
+            const r = results.find((r) => r.id === p.id);
+            return r ? { ...p, file: r.webp, converting: false } : p;
+          }));
+        }
+      });
+    }
 
     setTimeout(() => pagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
   }, [toast]);
@@ -185,16 +212,19 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
       const jwt = Cookies.get("jwt");
       if (!jwt) { toast.error("Token JWT manquant. Veuillez vous reconnecter."); return; }
 
-      const uploadedMap = await batchUploadImages(pages, jwt, controller, (text, percent) => {
-        if (mountedRef.current) {
-          setUploadProgress(text);
-          setUploadPercent(percent);
+      const uploadedMap = await batchUploadImages(pages, jwt, controller, (phase, percent, done, total) => {
+        if (!mountedRef.current) return;
+        setUploadPercent(percent);
+        if (phase === "optimize") {
+          setUploadProgress(`Optimisation des images... ${done}/${total}`);
+        } else {
+          setUploadProgress(`Envoi en cours... ${done}/${total} (${percent}%)`);
         }
       });
 
       if (mountedRef.current) {
-        setUploadProgress("Création du scan...");
-        setUploadPercent(95);
+        setUploadProgress("Finalisation...");
+        setUploadPercent(100);
       }
 
       const uploadedPages = pages.map((p) => ({
@@ -320,7 +350,7 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
               {/* Zone de drop */}
               <div>
                 <label className="block font-semibold mb-1 text-sm">
-                  Pages du scan <span className="text-gray-500 text-xs">(max {MAX_PAGES}, {MAX_IMAGE_SIZE_MB} Mo chaque, WebP uniquement)</span>
+                  Pages du scan <span className="text-gray-500 text-xs">(max {MAX_PAGES}, {MAX_IMAGE_SIZE_MB} Mo chaque)</span>
                 </label>
                 <div
                   onDrop={handleDrop}
@@ -332,16 +362,16 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
                   }`}
                 >
                   <p className="text-gray-300 text-sm">
-                    Glissez-déposez des images <strong>WebP</strong> ou un dossier, ou{" "}
+                    Glissez-déposez vos images ou un dossier, ou{" "}
                     <span className="text-pink-400 underline">cliquez pour sélectionner</span>
                   </p>
                   <p className="text-gray-500 text-xs mt-1">
-                    Seuls les fichiers .webp sont acceptés. Convertissez vos images via le menu Édition.
+                    JPG, PNG, GIF, BMP, WebP — conversion automatique en WebP
                   </p>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".webp,image/webp"
+                    accept="image/*"
                     multiple
                     onChange={handleFileChange}
                     className="hidden"
@@ -401,6 +431,12 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
                         <div className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-mono z-20 pointer-events-none">
                           {page.numero}
                         </div>
+                        {/* Spinner de conversion */}
+                        {page.converting && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20 pointer-events-none">
+                            <div className="w-6 h-6 border-2 border-pink-400 border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        )}
                         {/* Contrôles — toujours visibles mobile */}
                         <div className="absolute top-1 right-1 flex flex-col gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition z-20">
                           <button
@@ -431,16 +467,40 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
                 </div>
               )}
 
-              {/* Barre de progression réelle */}
+              {/* Barre de conversion */}
+              {convertingCount > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-amber-300 text-sm">
+                      Conversion en WebP... {pages.length - convertingCount}/{pages.length} prêtes
+                    </p>
+                    <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                      <div
+                        className="bg-amber-400 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round(((pages.length - convertingCount) / pages.length) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Barre de progression upload */}
               {uploadProgress && (
-                <div className="space-y-1">
-                  <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-white">{uploadProgress}</p>
+                    <span className="text-lg font-bold text-pink-400">{uploadPercent}%</span>
+                  </div>
+                  <div className="w-full bg-gray-600 rounded-full h-3 overflow-hidden">
                     <div
-                      className="bg-pink-500 h-2.5 rounded-full transition-all duration-300"
+                      className="bg-gradient-to-r from-pink-500 to-purple-500 h-3 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min(uploadPercent, 100)}%` }}
                     />
                   </div>
-                  <p className="text-center text-sm text-pink-300">{uploadProgress}</p>
+                  <p className="text-xs text-gray-400 text-center">
+                    Ne fermez pas cette fenêtre. L&apos;envoi peut prendre plusieurs minutes selon le nombre d&apos;images.
+                  </p>
                 </div>
               )}
 
@@ -455,13 +515,18 @@ const AjouterScan = ({ oeuvreId, onClose, onScanAdded }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading}
+                  disabled={uploading || convertingCount > 0}
                   className="px-5 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 transition text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {uploading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Upload en cours...
+                    </>
+                  ) : convertingCount > 0 ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Conversion...
                     </>
                   ) : (
                     `Ajouter (${pages.length} page${pages.length > 1 ? "s" : ""})`

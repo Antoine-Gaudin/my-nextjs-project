@@ -5,7 +5,8 @@
       "Bash(timeout:*)",
       "Bash(npm ls:*)",
       "Bash(xcopy:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(grep:*)"
     ]
   }
 }

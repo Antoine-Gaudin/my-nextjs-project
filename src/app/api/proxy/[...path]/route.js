@@ -14,6 +14,7 @@ const ALLOWED_ROUTES = [
   'auth/local',
   'auth/local/register',
   'auth/change-password',
+  'forgot-password',
   'upload',
   'teams',
   'team-invitations',

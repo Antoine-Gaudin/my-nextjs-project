@@ -7,6 +7,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import {
   MAX_IMAGE_SIZE_MB, MAX_PAGES,
   naturalSort, readDirectoryFiles, validateFiles, batchUploadImages,
+  needsConversion, convertAndResize,
 } from "../utils/scanUtils";
 
 /**
@@ -41,6 +42,8 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
   const abortRef = useRef(null);
   const mountedRef = useRef(true);
   const dialogRef = useRef(null);
+  const conversionMutex = useRef(Promise.resolve());
+  const [downloading, setDownloading] = useState(false);
 
   // ─── Dirty check ───
   const isDirty = useMemo(() => {
@@ -56,6 +59,7 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
   const existingCount = useMemo(() => pages.filter((p) => p.isExisting).length, [pages]);
   const newCount = useMemo(() => pages.filter((p) => !p.isExisting).length, [pages]);
   const selectedCount = useMemo(() => pages.filter((p) => p.selected).length, [pages]);
+  const convertingCount = useMemo(() => pages.filter((p) => p.converting).length, [pages]);
 
   // ─── Unmount guard ───
   useEffect(() => {
@@ -91,11 +95,13 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                 numero: p.numero,
                 imageId: img?.id || null,
                 imageUrl: url,
+                downloadUrl: img?.url || null,
                 componentId: p.id,
                 file: null,
                 preview: url,
                 isExisting: true,
                 selected: false,
+                converting: false,
               };
             });
           if (mountedRef.current) {
@@ -160,31 +166,51 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
     onClose();
   }, [pages, onClose]);
 
-  // ─── Ajout de fichiers (F2 : supporte dossiers via webkitGetAsEntry) ───
+  // ─── Ajout de fichiers (avec conversion auto non-WebP) ───
   const addFiles = useCallback((files) => {
     const validFiles = validateFiles(files, toast);
     if (validFiles.length === 0) return;
+
+    const toConvert = [];
 
     setPages((prev) => {
       if (prev.length + validFiles.length > MAX_PAGES) {
         toast.warning(`Maximum ${MAX_PAGES} pages par scan.`);
         return prev;
       }
-      const newPages = validFiles.map((file) => ({
-        id: ++idCounter.current,
-        file,
-        preview: URL.createObjectURL(file),
-        numero: 0,
-        imageId: null,
-        imageUrl: null,
-        isExisting: false,
-        selected: false,
-      }));
+      const newPages = validFiles.map((file) => {
+        const id = ++idCounter.current;
+        const converting = needsConversion(file);
+        if (converting) toConvert.push({ id, file });
+        return {
+          id, file, preview: URL.createObjectURL(file), numero: 0,
+          imageId: null, imageUrl: null, isExisting: false, selected: false, converting,
+        };
+      });
       const all = [...prev, ...newPages];
       return all.map((p, i) => ({ ...p, numero: i + 1 }));
     });
 
-    // E8 : scroll vers nouvelles pages
+    // Conversion en arrière-plan
+    if (toConvert.length > 0) {
+      conversionMutex.current = conversionMutex.current.then(async () => {
+        for (let i = 0; i < toConvert.length; i += 5) {
+          const batch = toConvert.slice(i, i + 5);
+          const results = await Promise.all(
+            batch.map(async ({ id, file }) => {
+              try { return { id, webp: await convertAndResize(file) }; }
+              catch { return { id, webp: file }; }
+            })
+          );
+          if (!mountedRef.current) return;
+          setPages((prev) => prev.map((p) => {
+            const r = results.find((r) => r.id === p.id);
+            return r ? { ...p, file: r.webp, converting: false } : p;
+          }));
+        }
+      });
+    }
+
     setTimeout(() => pagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
   }, [toast]);
 
@@ -299,6 +325,36 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
     });
   };
 
+  // ─── Téléchargement des pages existantes ───
+  const downloadPages = useCallback(async () => {
+    const existingPages = pages.filter((p) => p.isExisting && p.downloadUrl);
+    if (existingPages.length === 0) {
+      toast.warning("Aucune page à télécharger.");
+      return;
+    }
+    setDownloading(true);
+    let count = 0;
+    for (const page of existingPages) {
+      try {
+        const res = await fetch(page.downloadUrl);
+        const blob = await res.blob();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `page-${String(page.numero).padStart(3, "0")}.webp`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        count++;
+        await new Promise((r) => setTimeout(r, 200));
+      } catch {
+        console.error(`Échec téléchargement page ${page.numero}`);
+      }
+    }
+    if (mountedRef.current) {
+      toast.success(`${count} page(s) téléchargée(s) !`);
+      setDownloading(false);
+    }
+  }, [pages, toast]);
+
   // ─── Sauvegarde (D2 : utilise batchUploadImages partagé) ───
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -324,17 +380,20 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
       let uploadedMap = new Map();
 
       if (newPages.length > 0) {
-        uploadedMap = await batchUploadImages(newPages, jwt, controller, (text, percent) => {
-          if (mountedRef.current) {
-            setUploadProgress(text);
-            setUploadPercent(percent);
+        uploadedMap = await batchUploadImages(newPages, jwt, controller, (phase, percent, done, total) => {
+          if (!mountedRef.current) return;
+          setUploadPercent(percent);
+          if (phase === "optimize") {
+            setUploadProgress(`Optimisation des images... ${done}/${total}`);
+          } else {
+            setUploadProgress(`Envoi en cours... ${done}/${total} (${percent}%)`);
           }
         });
       }
 
       if (mountedRef.current) {
-        setUploadProgress("Mise à jour du scan...");
-        setUploadPercent(95);
+        setUploadProgress("Finalisation...");
+        setUploadPercent(100);
       }
 
       const finalPages = pages.map((p) => ({
@@ -467,7 +526,7 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                 {/* Zone d'ajout d'images */}
                 <div>
                   <label className="block font-semibold mb-1 text-sm">
-                    Ajouter des pages <span className="text-gray-500 text-xs">(max {MAX_PAGES}, {MAX_IMAGE_SIZE_MB} Mo chaque, WebP uniquement)</span>
+                    Ajouter des pages <span className="text-gray-500 text-xs">(max {MAX_PAGES}, {MAX_IMAGE_SIZE_MB} Mo chaque)</span>
                   </label>
                   <div
                     onDrop={handleDrop}
@@ -479,13 +538,16 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                     }`}
                   >
                     <p className="text-gray-300 text-sm">
-                      Glissez-déposez des images <strong>WebP</strong> ou un dossier, ou{" "}
+                      Glissez-déposez vos images ou un dossier, ou{" "}
                       <span className="text-pink-400 underline">cliquez pour sélectionner</span>
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      JPG, PNG, GIF, BMP, WebP — conversion automatique en WebP
                     </p>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".webp,image/webp"
+                      accept="image/*"
                       multiple
                       onChange={handleFileChange}
                       className="hidden"
@@ -537,6 +599,20 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                             <button type="button" onClick={selectAll} className="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded transition text-gray-300">
                               Tout sélectionner
                             </button>
+                            {existingCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={downloadPages}
+                                disabled={downloading}
+                                className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 rounded transition text-blue-400 disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {downloading ? (
+                                  <><div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin" /> Téléchargement...</>
+                                ) : (
+                                  <>⬇ Télécharger ({existingCount})</>
+                                )}
+                              </button>
+                            )}
                             <button type="button" onClick={removeAll} className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 rounded transition text-red-400">
                               Tout supprimer
                             </button>
@@ -583,6 +659,12 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                           <div className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-mono z-20 pointer-events-none">
                             {page.numero}
                           </div>
+                          {/* Spinner de conversion */}
+                          {page.converting && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20 pointer-events-none">
+                              <div className="w-6 h-6 border-2 border-pink-400 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          )}
                           {/* Badge nouveau */}
                           {!page.isExisting && (
                             <div className="absolute top-1 left-8 bg-green-600/80 text-white text-[10px] px-1 py-0.5 rounded z-20 pointer-events-none">
@@ -630,16 +712,40 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                   </div>
                 )}
 
-                {/* E7: Barre de progression réelle */}
+                {/* Barre de conversion */}
+                {convertingCount > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-amber-300 text-sm">
+                        Conversion en WebP... {pages.length - convertingCount}/{pages.length} prêtes
+                      </p>
+                      <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                        <div
+                          className="bg-amber-400 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.round(((pages.length - convertingCount) / pages.length) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Barre de progression upload */}
                 {uploadProgress && (
-                  <div className="space-y-1">
-                    <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                  <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-white">{uploadProgress}</p>
+                      <span className="text-lg font-bold text-pink-400">{uploadPercent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-600 rounded-full h-3 overflow-hidden">
                       <div
-                        className="bg-pink-500 h-2.5 rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-pink-500 to-purple-500 h-3 rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(uploadPercent, 100)}%` }}
                       />
                     </div>
-                    <p className="text-center text-sm text-pink-300">{uploadProgress}</p>
+                    <p className="text-xs text-gray-400 text-center">
+                      Ne fermez pas cette fenêtre. L&apos;envoi peut prendre plusieurs minutes selon le nombre d&apos;images.
+                    </p>
                   </div>
                 )}
 
@@ -654,7 +760,7 @@ const ModifierScan = ({ scan, onClose, onScanUpdated }) => {
                   </button>
                   <button
                     type="submit"
-                    disabled={saving || !isDirty}
+                    disabled={saving || !isDirty || convertingCount > 0}
                     className={`px-5 py-2 rounded-lg transition text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
                       isDirty ? "bg-pink-600 hover:bg-pink-500" : "bg-gray-600"
                     }`}
