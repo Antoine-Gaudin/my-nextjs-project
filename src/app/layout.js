@@ -72,6 +72,26 @@ export default function RootLayout({ children }) {
   return (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Trad-Index",
+              url: "https://trad-index.com",
+              description:
+                "Plateforme collaborative d'indexation et de lecture de traductions de light novels, web novels et mangas.",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://trad-index.com/recherche?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+      </head>
+      <body className="bg-gray-900 text-white">
         {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-3LFPLHB15J"
@@ -85,26 +105,6 @@ export default function RootLayout({ children }) {
             gtag('config', 'G-3LFPLHB15J');
           `}
         </Script>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              name: "Trad-Index",
-              url: "https://trad-index.com",
-              description:
-                "Plateforme collaborative d'indexation et de lecture de traductions de light novels, web novels et mangas.",
-              potentialAction: {
-                "@type": "SearchAction",
-                target: "https://trad-index.com/oeuvres?q={search_term_string}",
-                "query-input": "required name=search_term_string",
-              },
-            }),
-          }}
-        />
-      </head>
-      <body className="bg-gray-900 text-white">
         {/* Skip navigation link for accessibility */}
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg">
           Aller au contenu principal

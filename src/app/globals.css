@@ -173,6 +173,7 @@ body {
 /* Valeurs par défaut des variables de personnalisation */
 .chapter-content {
   --reader-line-height: 1.85;
+  --reader-paragraph-spacing: 1rem;
   --reader-narration-color: #e5e7eb;
   --reader-dialogue-color: #c7d2fe;
   --reader-dialogue-border: rgba(129, 140, 248, 0.3);
@@ -191,7 +192,7 @@ body {
 .chapter-content .narration {
   color: var(--reader-narration-color);
   line-height: var(--reader-line-height);
-  margin-bottom: 0.6em;
+  margin-bottom: var(--reader-paragraph-spacing, 1rem);
   text-align: justify;
   text-justify: inter-word;
 }
@@ -200,7 +201,7 @@ body {
 .chapter-content .dialogue {
   color: var(--reader-dialogue-color);
   line-height: calc(var(--reader-line-height) - 0.1);
-  margin-bottom: 0.5em;
+  margin-bottom: var(--reader-paragraph-spacing, 1rem);
   padding-left: 1.25em;
   border-left: 2px solid var(--reader-dialogue-border);
   margin-left: 0.5em;
@@ -228,7 +229,7 @@ body {
 .chapter-content .thought {
   color: var(--reader-thought-color);
   line-height: calc(var(--reader-line-height) - 0.1);
-  margin-bottom: 0.5em;
+  margin-bottom: var(--reader-paragraph-spacing, 1rem);
   font-style: italic;
   padding-left: 1em;
   opacity: 0.9;
@@ -452,6 +453,312 @@ body {
 }
 .reader-theme-light .chapter-content a:hover {
   color: #3730a3;
+}
+
+/* ─── Reader Theme: Nuit (Anti lumière bleue) ─── */
+.reader-theme-night .chapter-content .sfx {
+  text-shadow: none;
+}
+.reader-theme-night .chapter-content .scene-break {
+  color: rgba(122, 155, 181, 0.3);
+}
+.reader-theme-night .chapter-content .scene-break::before,
+.reader-theme-night .chapter-content .scene-break::after {
+  background: linear-gradient(to var(--dir, right), transparent, rgba(122, 155, 181, 0.2));
+}
+.reader-theme-night .chapter-content.dialogue-style-highlighted .dialogue {
+  background: rgba(122, 155, 181, 0.06);
+}
+.reader-theme-night .chapter-content .game-badge::before {
+  box-shadow: 0 0 6px rgba(122, 155, 181, 0.2);
+}
+.reader-theme-night .chapter-content h1,
+.reader-theme-night .chapter-content h2,
+.reader-theme-night .chapter-content h3,
+.reader-theme-night .chapter-content h4,
+.reader-theme-night .chapter-content h5,
+.reader-theme-night .chapter-content h6 {
+  color: #c8c0b0;
+}
+.reader-theme-night .chapter-content blockquote {
+  border-color: rgba(122, 155, 181, 0.2);
+  background: rgba(122, 155, 181, 0.04);
+  color: #8a9baa;
+}
+.reader-theme-night .chapter-content pre {
+  background: #0e1529;
+  border-color: #1a2540;
+}
+.reader-theme-night .chapter-content pre code {
+  color: #7a9b7a;
+}
+.reader-theme-night .chapter-content code {
+  background: #152040;
+  color: #a0b4c8;
+}
+.reader-theme-night .chapter-content li {
+  color: #b8b0a0;
+}
+.reader-theme-night .chapter-content a {
+  color: #7a9bb5;
+}
+.reader-theme-night .chapter-content a:hover {
+  color: #a0b4c8;
+}
+
+/* ─── Reader Theme: Forêt ─── */
+.reader-theme-forest .chapter-content .sfx {
+  text-shadow: none;
+}
+.reader-theme-forest .chapter-content .scene-break {
+  color: rgba(106, 170, 106, 0.3);
+}
+.reader-theme-forest .chapter-content .scene-break::before,
+.reader-theme-forest .chapter-content .scene-break::after {
+  background: linear-gradient(to var(--dir, right), transparent, rgba(106, 170, 106, 0.2));
+}
+.reader-theme-forest .chapter-content.dialogue-style-highlighted .dialogue {
+  background: rgba(106, 170, 106, 0.06);
+}
+.reader-theme-forest .chapter-content .game-badge::before {
+  box-shadow: 0 0 6px rgba(106, 170, 106, 0.2);
+}
+.reader-theme-forest .chapter-content h1,
+.reader-theme-forest .chapter-content h2,
+.reader-theme-forest .chapter-content h3,
+.reader-theme-forest .chapter-content h4,
+.reader-theme-forest .chapter-content h5,
+.reader-theme-forest .chapter-content h6 {
+  color: #c8d8c0;
+}
+.reader-theme-forest .chapter-content blockquote {
+  border-color: rgba(106, 170, 106, 0.2);
+  background: rgba(106, 170, 106, 0.04);
+  color: #7a9a7a;
+}
+.reader-theme-forest .chapter-content pre {
+  background: #0d1f12;
+  border-color: #1a3020;
+}
+.reader-theme-forest .chapter-content pre code {
+  color: #8fbf8f;
+}
+.reader-theme-forest .chapter-content code {
+  background: #152a1a;
+  color: #8fbf8f;
+}
+.reader-theme-forest .chapter-content li {
+  color: #b4c8b0;
+}
+.reader-theme-forest .chapter-content a {
+  color: #6aaa6a;
+}
+.reader-theme-forest .chapter-content a:hover {
+  color: #8fbf8f;
+}
+
+/* ─── Reader Theme: Rose ─── */
+.reader-theme-rose .chapter-content .sfx {
+  text-shadow: none;
+}
+.reader-theme-rose .chapter-content .scene-break {
+  color: rgba(196, 138, 164, 0.3);
+}
+.reader-theme-rose .chapter-content .scene-break::before,
+.reader-theme-rose .chapter-content .scene-break::after {
+  background: linear-gradient(to var(--dir, right), transparent, rgba(196, 138, 164, 0.2));
+}
+.reader-theme-rose .chapter-content.dialogue-style-highlighted .dialogue {
+  background: rgba(196, 138, 164, 0.06);
+}
+.reader-theme-rose .chapter-content .game-badge::before {
+  box-shadow: 0 0 6px rgba(196, 138, 164, 0.2);
+}
+.reader-theme-rose .chapter-content h1,
+.reader-theme-rose .chapter-content h2,
+.reader-theme-rose .chapter-content h3,
+.reader-theme-rose .chapter-content h4,
+.reader-theme-rose .chapter-content h5,
+.reader-theme-rose .chapter-content h6 {
+  color: #d8c8d0;
+}
+.reader-theme-rose .chapter-content blockquote {
+  border-color: rgba(196, 138, 164, 0.2);
+  background: rgba(196, 138, 164, 0.04);
+  color: #b08a9a;
+}
+.reader-theme-rose .chapter-content pre {
+  background: #1f1218;
+  border-color: #30182a;
+}
+.reader-theme-rose .chapter-content pre code {
+  color: #d4a0b4;
+}
+.reader-theme-rose .chapter-content code {
+  background: #2a1a24;
+  color: #d4a0b4;
+}
+.reader-theme-rose .chapter-content li {
+  color: #c8b8c0;
+}
+.reader-theme-rose .chapter-content a {
+  color: #c48aa4;
+}
+.reader-theme-rose .chapter-content a:hover {
+  color: #d4a0b4;
+}
+
+/* ─── Reader Theme: Océan ─── */
+.reader-theme-ocean .chapter-content .sfx {
+  text-shadow: none;
+}
+.reader-theme-ocean .chapter-content .scene-break {
+  color: rgba(96, 176, 200, 0.3);
+}
+.reader-theme-ocean .chapter-content .scene-break::before,
+.reader-theme-ocean .chapter-content .scene-break::after {
+  background: linear-gradient(to var(--dir, right), transparent, rgba(96, 176, 200, 0.2));
+}
+.reader-theme-ocean .chapter-content.dialogue-style-highlighted .dialogue {
+  background: rgba(96, 176, 200, 0.06);
+}
+.reader-theme-ocean .chapter-content .game-badge::before {
+  box-shadow: 0 0 6px rgba(96, 176, 200, 0.2);
+}
+.reader-theme-ocean .chapter-content h1,
+.reader-theme-ocean .chapter-content h2,
+.reader-theme-ocean .chapter-content h3,
+.reader-theme-ocean .chapter-content h4,
+.reader-theme-ocean .chapter-content h5,
+.reader-theme-ocean .chapter-content h6 {
+  color: #c0d8e0;
+}
+.reader-theme-ocean .chapter-content blockquote {
+  border-color: rgba(96, 176, 200, 0.2);
+  background: rgba(96, 176, 200, 0.04);
+  color: #7aaabb;
+}
+.reader-theme-ocean .chapter-content pre {
+  background: #0d1820;
+  border-color: #183040;
+}
+.reader-theme-ocean .chapter-content pre code {
+  color: #80c8d8;
+}
+.reader-theme-ocean .chapter-content code {
+  background: #152530;
+  color: #80c8d8;
+}
+.reader-theme-ocean .chapter-content li {
+  color: #a8c4d0;
+}
+.reader-theme-ocean .chapter-content a {
+  color: #60b0c8;
+}
+.reader-theme-ocean .chapter-content a:hover {
+  color: #80c8d8;
+}
+
+/* ─── Reader Theme: Papier ─── */
+.reader-theme-paper .chapter-content .sfx {
+  text-shadow: none;
+}
+.reader-theme-paper .chapter-content .scene-break {
+  color: rgba(106, 90, 64, 0.4);
+}
+.reader-theme-paper .chapter-content .scene-break::before,
+.reader-theme-paper .chapter-content .scene-break::after {
+  background: linear-gradient(to var(--dir, right), transparent, rgba(106, 90, 64, 0.3));
+}
+.reader-theme-paper .chapter-content.dialogue-style-highlighted .dialogue {
+  background: rgba(106, 90, 64, 0.08);
+}
+.reader-theme-paper .chapter-content .game-badge::before {
+  box-shadow: 0 0 6px rgba(106, 90, 64, 0.2);
+}
+.reader-theme-paper .chapter-content h1,
+.reader-theme-paper .chapter-content h2,
+.reader-theme-paper .chapter-content h3,
+.reader-theme-paper .chapter-content h4,
+.reader-theme-paper .chapter-content h5,
+.reader-theme-paper .chapter-content h6 {
+  color: #2a2018;
+}
+.reader-theme-paper .chapter-content blockquote {
+  border-color: rgba(106, 90, 64, 0.3);
+  background: rgba(106, 90, 64, 0.06);
+  color: #5a4a38;
+}
+.reader-theme-paper .chapter-content pre {
+  background: #ddd2c0;
+  border-color: #c8bca8;
+}
+.reader-theme-paper .chapter-content pre code {
+  color: #3a6030;
+}
+.reader-theme-paper .chapter-content code {
+  background: #d4c8b4;
+  color: #5a4030;
+}
+.reader-theme-paper .chapter-content li {
+  color: #3a3028;
+}
+.reader-theme-paper .chapter-content a {
+  color: #6a5040;
+}
+.reader-theme-paper .chapter-content a:hover {
+  color: #5a4030;
+}
+
+/* ─── Reader Theme: Encre (Mat, comme un livre) ─── */
+.reader-theme-ink .chapter-content .sfx {
+  text-shadow: none;
+}
+.reader-theme-ink .chapter-content .scene-break {
+  color: rgba(90, 82, 72, 0.35);
+}
+.reader-theme-ink .chapter-content .scene-break::before,
+.reader-theme-ink .chapter-content .scene-break::after {
+  background: linear-gradient(to var(--dir, right), transparent, rgba(90, 82, 72, 0.25));
+}
+.reader-theme-ink .chapter-content.dialogue-style-highlighted .dialogue {
+  background: rgba(90, 82, 72, 0.06);
+}
+.reader-theme-ink .chapter-content .game-badge::before {
+  box-shadow: 0 0 5px rgba(90, 82, 72, 0.15);
+}
+.reader-theme-ink .chapter-content h1,
+.reader-theme-ink .chapter-content h2,
+.reader-theme-ink .chapter-content h3,
+.reader-theme-ink .chapter-content h4,
+.reader-theme-ink .chapter-content h5,
+.reader-theme-ink .chapter-content h6 {
+  color: #2c2824;
+}
+.reader-theme-ink .chapter-content blockquote {
+  border-color: rgba(90, 82, 72, 0.25);
+  background: rgba(90, 82, 72, 0.05);
+  color: #4a4440;
+}
+.reader-theme-ink .chapter-content pre {
+  background: #d8d4cc;
+  border-color: #c8c4bc;
+}
+.reader-theme-ink .chapter-content pre code {
+  color: #3a5a3a;
+}
+.reader-theme-ink .chapter-content code {
+  background: #d0ccc4;
+  color: #4a4038;
+}
+.reader-theme-ink .chapter-content li {
+  color: #38342e;
+}
+.reader-theme-ink .chapter-content a {
+  color: #5a5048;
+}
+.reader-theme-ink .chapter-content a:hover {
+  color: #4a4038;
 }
 
 /* ─── Reader Theme: Confort (Sépia) ─── */

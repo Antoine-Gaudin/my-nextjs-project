@@ -35,6 +35,8 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [shareTooltip, setShareTooltip] = useState(false);
+  const [showOeuvreShareCard, setShowOeuvreShareCard] = useState(false);
+  const [oeuvreShareCardUrl, setOeuvreShareCardUrl] = useState(null);
   const [selectedTome, setSelectedTome] = useState("all");
   
   // ─── Scan state (séparé des chapitres) ───
@@ -96,7 +98,7 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
     return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
   };
 
-  // Partage
+  // Partage lien
   const handleShare = async () => {
     const url = window.location.origin + `/oeuvre/${oeuvre.documentId}`;
     try {
@@ -104,6 +106,94 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
       setShareTooltip(true);
       setTimeout(() => setShareTooltip(false), 2000);
     } catch {}
+  };
+
+  // Partage carte image
+  const generateOeuvreCard = async () => {
+    try {
+      const canvas = document.createElement("canvas");
+      const w = 1200, h = 630;
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, "#1e1b4b"); grad.addColorStop(0.5, "#312e81"); grad.addColorStop(1, "#1e1b4b");
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = "rgba(99, 102, 241, 0.05)";
+      for (let i = 0; i < 15; i++) {
+        ctx.beginPath(); ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 80 + 20, 0, Math.PI * 2); ctx.fill();
+      }
+
+      const coverSrc = oeuvre?.couverture?.[0]?.url;
+      let coverLoaded = false;
+      if (coverSrc) {
+        try {
+          const img = new window.Image();
+          img.crossOrigin = "anonymous";
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = coverSrc; setTimeout(rej, 5000); });
+          ctx.save();
+          ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 30; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 5;
+          const cW = 200, cH = 290, cX = 80, cY = (h - cH) / 2;
+          ctx.beginPath(); ctx.roundRect(cX, cY, cW, cH, 12); ctx.clip();
+          ctx.drawImage(img, cX, cY, cW, cH);
+          ctx.restore();
+          ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.roundRect(cX, cY, cW, cH, 12); ctx.stroke();
+          coverLoaded = true;
+        } catch {}
+      }
+
+      const tx = coverLoaded ? 340 : 80;
+      const tw = w - tx - 80;
+
+      ctx.fillStyle = "#e0e7ff"; ctx.font = "bold 40px 'Inter', system-ui, sans-serif";
+      const words = (oeuvre?.titre || "").split(" ");
+      let line = "", ty = 180;
+      for (const word of words) {
+        const test = line ? line + " " + word : word;
+        if (ctx.measureText(test).width > tw && line) { ctx.fillText(line, tx, ty); ty += 50; line = word; } else { line = test; }
+      }
+      if (line) { ctx.fillText(line, tx, ty); ty += 50; }
+
+      ty += 10;
+      ctx.fillStyle = "#a5b4fc"; ctx.font = "500 24px 'Inter', system-ui, sans-serif";
+      const typeLabel = oeuvre?.type ? oeuvre.type.charAt(0).toUpperCase() + oeuvre.type.slice(1) : "";
+      const chapCount = allSortedChapitres?.length || chapitres?.length || 0;
+      ctx.fillText(`${typeLabel}${typeLabel && chapCount ? " — " : ""}${chapCount ? chapCount + " chapitres" : ""}`, tx, ty);
+
+      if (oeuvre?.synopsis) {
+        ty += 40;
+        ctx.fillStyle = "rgba(199, 210, 254, 0.7)"; ctx.font = "18px 'Inter', system-ui, sans-serif";
+        const synText = typeof oeuvre.synopsis === "string" ? oeuvre.synopsis : (oeuvre.synopsis?.[0]?.children?.[0]?.text || "");
+        const synWords = synText.slice(0, 200).split(" ");
+        let sl = ""; let lc = 0;
+        for (const sw of synWords) {
+          const st = sl ? sl + " " + sw : sw;
+          if (ctx.measureText(st).width > tw && sl) { ctx.fillText(sl, tx, ty); ty += 26; sl = sw; lc++; if (lc >= 3) { sl += "..."; ctx.fillText(sl, tx, ty); sl = ""; break; } } else { sl = st; }
+        }
+        if (sl) ctx.fillText(sl, tx, ty);
+      }
+
+      ctx.fillStyle = "rgba(165, 180, 252, 0.4)"; ctx.font = "bold 18px 'Inter', system-ui, sans-serif";
+      ctx.fillText("trad-index.com", w - 200, h - 30);
+      const lg = ctx.createLinearGradient(0, h - 4, w, h - 4);
+      lg.addColorStop(0, "transparent"); lg.addColorStop(0.3, "#818cf8"); lg.addColorStop(0.7, "#a78bfa"); lg.addColorStop(1, "transparent");
+      ctx.fillStyle = lg; ctx.fillRect(0, h - 4, w, 4);
+
+      setOeuvreShareCardUrl(canvas.toDataURL("image/png"));
+      setShowOeuvreShareCard(true);
+    } catch (err) { console.error("Share card error:", err); }
+  };
+
+  const downloadOeuvreCard = () => {
+    if (!oeuvreShareCardUrl) return;
+    const a = document.createElement("a");
+    a.href = oeuvreShareCardUrl;
+    a.download = "trad-index-oeuvre.png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // Tracking — enregistrer un événement
@@ -126,6 +216,18 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
     if (!oeuvre?.documentId) return;
     const timer = setTimeout(() => trackEvent("vue"), 5000);
     return () => clearTimeout(timer);
+  }, [oeuvre?.documentId]);
+
+  // Charger l'état favori/abonné persistant
+  useEffect(() => {
+    if (!oeuvre?.documentId) return;
+    fetch(`/api/favoris?oeuvreId=${oeuvre.documentId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.liked) setIsFavorite(true);
+        if (data.subscribed) setIsSubscribed(true);
+      })
+      .catch(() => {});
   }, [oeuvre?.documentId]);
 
   // Fetch métadonnées de l'oeuvre (tags, genres, users) — rapide, sans chapitres
@@ -248,20 +350,20 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
   const isSynopsisLong = synopsis.length > 500;
 
   return (
-    <div 
+    <div
       role="dialog"
       aria-modal="true"
       className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex justify-center items-start p-0 sm:p-4 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="relative bg-gray-950 text-white w-full max-w-6xl min-h-screen sm:min-h-0 sm:max-h-[95vh] sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-fadeIn">
-        
+
         {/* Image de fond ABSOLUE derrière tout le contenu */}
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: coverUrl 
-              ? `url('${coverUrl}')` 
+            backgroundImage: coverUrl
+              ? `url('${coverUrl}')`
               : `url('/images/HeroHeader.webp')`,
           }}
         />
@@ -288,7 +390,19 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
               </div>
             )}
           </div>
-          
+
+          {/* Partager carte image */}
+          <button
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-purple-600 text-white transition-all duration-300"
+            onClick={generateOeuvreCard}
+            title="Partager une image"
+            aria-label="Générer une carte de partage"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </button>
+
           {/* Favori / Like */}
           <button
             className={`w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300 ${
@@ -314,6 +428,18 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
           >
             <svg className={`w-5 h-5 transition-transform duration-300 ${isSubscribed ? "scale-110" : ""}`} fill={isSubscribed ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </button>
+
+          {/* Page complète */}
+          <button
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-indigo-600 text-white transition-all duration-300"
+            onClick={() => router.push(`/oeuvre/${oeuvre.documentId}`)}
+            title="Voir la page complète"
+            aria-label="Page complète"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </button>
 
@@ -960,6 +1086,50 @@ export default function FicheOeuvre({ oeuvre, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Modal carte de partage oeuvre */}
+      {showOeuvreShareCard && oeuvreShareCardUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setShowOeuvreShareCard(false); setOeuvreShareCardUrl(null); }}>
+          <div className="w-full max-w-2xl mx-4 bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Carte de partage</h3>
+              <button onClick={() => { setShowOeuvreShareCard(false); setOeuvreShareCardUrl(null); }} className="p-1 text-gray-400 hover:text-white transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <img src={oeuvreShareCardUrl} alt="Carte de partage" className="w-full rounded-xl shadow-lg" />
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={downloadOeuvreCard}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Télécharger l&apos;image
+                </button>
+                <button
+                  onClick={() => {
+                    const url = window.location.origin + `/oeuvre/${oeuvre.documentId}`;
+                    navigator.clipboard.writeText(url).catch(() => {});
+                    setShareTooltip(true);
+                    setTimeout(() => setShareTooltip(false), 2000);
+                  }}
+                  className="px-4 py-2.5 rounded-lg border border-gray-600 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  {shareTooltip ? "Copié !" : "Copier le lien"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    devIndicators: false,
     images: {
       formats: ['image/avif', 'image/webp'],
       remotePatterns: [
@@ -64,7 +65,7 @@ const nextConfig = {
             },
             {
               key: 'Content-Security-Policy',
-              value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://res.cloudinary.com https://my-strapi-project-yysn.onrender.com https://novel-index-strapi.onrender.com; connect-src 'self' https://my-strapi-project-yysn.onrender.com https://novel-index-strapi.onrender.com; frame-src 'self' https://res.cloudinary.com;",
+              value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://res.cloudinary.com https://my-strapi-project-yysn.onrender.com https://novel-index-strapi.onrender.com; connect-src 'self' https://my-strapi-project-yysn.onrender.com https://novel-index-strapi.onrender.com https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.analytics.google.com; frame-src 'self' https://res.cloudinary.com;",
             },
           ],
         },

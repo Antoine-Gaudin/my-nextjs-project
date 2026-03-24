@@ -84,11 +84,16 @@ export default function ProfilPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-full">
-      <div>
+    <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
+      {/* Mobile menu */}
+      <div className="md:hidden px-4 pt-4">
         <NavProfil onMenuSelect={setActiveMenu} user={user} activeMenu={activeMenu} />
       </div>
-      <main className="flex-grow bg-gray-900 text-white p-8">
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <NavProfil onMenuSelect={setActiveMenu} user={user} activeMenu={activeMenu} />
+      </div>
+      <main className="flex-1 text-white p-4 sm:p-6 lg:p-8">
         {renderContent()}
       </main>
     </div>

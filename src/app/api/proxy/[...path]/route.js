@@ -219,6 +219,16 @@ export async function POST(request, { params }) {
       const check = await verifyOeuvreOwnership(authHeader, oeuvreId);
       if (!check.ok) return check.response;
     }
+
+    // ─── Ownership check pour création de chapitre ───
+    if (pathStr === 'chapitres' && body?.data?.oeuvres?.connect?.length > 0) {
+      if (!authHeader) {
+        return NextResponse.json({ error: 'Authorization required' }, { status: 401 });
+      }
+      const oeuvreId = body.data.oeuvres.connect[0];
+      const check = await verifyOeuvreOwnership(authHeader, oeuvreId);
+      if (!check.ok) return check.response;
+    }
     
     const headers = {
       'Content-Type': 'application/json',
@@ -272,13 +282,28 @@ export async function PUT(request, { params }) {
     // ─── Ownership check pour modification de scan ───
     const scanMatch = pathStr.match(/^scans\/(.+)$/);
     if (scanMatch) {
-      // Récupérer le scan existant pour vérifier l'oeuvre associée
       const scanRes = await fetch(`${API_URL}/api/scans/${scanMatch[1]}?populate[oeuvres][fields][0]=documentId`, {
         headers: { Authorization: authHeader },
       });
       if (scanRes.ok) {
         const scanData = await scanRes.json();
         const oeuvreId = scanData?.data?.oeuvres?.[0]?.documentId;
+        if (oeuvreId) {
+          const check = await verifyOeuvreOwnership(authHeader, oeuvreId);
+          if (!check.ok) return check.response;
+        }
+      }
+    }
+
+    // ─── Ownership check pour modification de chapitre ───
+    const chapMatch = pathStr.match(/^chapitres\/(.+)$/);
+    if (chapMatch) {
+      const chapRes = await fetch(`${API_URL}/api/chapitres/${chapMatch[1]}?populate[oeuvres][fields][0]=documentId`, {
+        headers: { Authorization: authHeader },
+      });
+      if (chapRes.ok) {
+        const chapData = await chapRes.json();
+        const oeuvreId = chapData?.data?.oeuvres?.[0]?.documentId;
         if (oeuvreId) {
           const check = await verifyOeuvreOwnership(authHeader, oeuvreId);
           if (!check.ok) return check.response;
@@ -356,7 +381,6 @@ export async function DELETE(request, { params }) {
     if (scanDeleteMatch) {
       const scanDocId = scanDeleteMatch[1];
       try {
-        // Récupérer le scan avec son œuvre liée
         const scanRes = await fetch(
           `${API_URL}/api/scans/${scanDocId}?populate[oeuvres][fields][0]=documentId&populate[oeuvres][populate][users][fields][0]=id`,
           { headers: { Authorization: authHeader } }
@@ -375,6 +399,31 @@ export async function DELETE(request, { params }) {
         }
       } catch (err) {
         console.error('Scan ownership check error:', err);
+      }
+    }
+
+    // ─── Ownership check pour suppression de chapitre ───
+    const chapDeleteMatch = pathStr.match(/^chapitres\/(.+)$/);
+    if (chapDeleteMatch) {
+      try {
+        const chapRes = await fetch(
+          `${API_URL}/api/chapitres/${chapDeleteMatch[1]}?populate[oeuvres][fields][0]=documentId&populate[oeuvres][populate][users][fields][0]=id`,
+          { headers: { Authorization: authHeader } }
+        );
+        if (chapRes.ok) {
+          const chapData = await chapRes.json();
+          const meRes = await fetch(`${API_URL}/api/users/me`, { headers: { Authorization: authHeader } });
+          if (meRes.ok) {
+            const me = await meRes.json();
+            const oeuvres = chapData?.data?.oeuvres || [];
+            const isOwner = oeuvres.some(o => (o.users || []).some(u => u.id === me.id));
+            if (!isOwner) {
+              return NextResponse.json({ error: 'Forbidden: you do not own this chapter' }, { status: 403 });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Chapter ownership check error:', err);
       }
     }
     
